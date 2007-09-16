@@ -13,47 +13,55 @@ TEMPLATE = u'''\
     <style type="text/css">{{ css }}</style>
   </head>
   <body>
-    <div id="header">
-      <h1>CleverCSS</h1>
-      <h2>the pythonic way of webdesign</h2>
-    </div>
-    <div id="page">
-      {{ body }}
+    <div id="wrapper">
+      <div id="header">
+        <h1>CleverCSS</h1>
+        <h2>the pythonic way of webdesign</h2>
+      </div>
+      <div id="page">
+        {{ body }}
+      </div>
     </div>
   </body>
 </html>
 '''
 
 STYLE = u'''\
-highlight_color = #B51F1F
+background_color = #5EDFDF
+highlight_color = #78AD1C
 header_color = white
-header_background = #B51F1F
+header_background = #A7E229
+border_color = #348B8B
+text_color = black
 
 body:
   margin: 0
-  padding: 1.5em 2.4em 2em 2.4em
-  background-color: white
-  color: black
+  padding: 2em 1em 2em 1em
+  background-color: $background_color
+  color: $text_color
   font->
     family: 'Georgia', serif
 
 a:
   color: $highlight_color
+  &:hover:
+    color: $highlight_color.brighten(25)
 
 p:
   text-align: justify
-  line-height: 1.6em
+  line-height: 1.5em
   padding: 0.4em 0 0.4em 0
   margin: 0
 
 li:
   line-height: 1.4em
+  text-align: justify
 
 h1, h2, h3:
   padding: 0
   margin: 0.8em 0 0 0
-  a:
-    color: black
+  a, a:hover:
+    color: $text_color
 
 h2:
   font-size: 1.8em
@@ -64,10 +72,16 @@ h3:
 pre:
   margin: 0
   padding: 0.8em 1.4em 0.8em 1.4em
+
+tt, pre:
   font->
     family: 'Bitstream Vera Sans Mono', 'Consolas', 'Monaco', monospace
     size: 0.85em
 
+#wrapper:
+  width: 38em
+  margin: 0 auto 0 auto
+  border: 4px solid $border_color
 
 #header:
   padding: 0.5em
@@ -87,8 +101,7 @@ pre:
 
 #page:
   padding: 0.8em 1.2em
-  max-width: 38em
-  border-left: 2em solid $highlight_color
+  background: white
 '''
 
 

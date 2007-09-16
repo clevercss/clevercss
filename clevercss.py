@@ -1392,6 +1392,7 @@ class Parser(object):
                 else:
                     raise ParserError(lineno, 'Syntax error')
 
+        s = s.rstrip(';')
         return self.expr(TokenStream(lineno, parse()))
 
     def expr(self, stream, ignore_comma=False):

@@ -394,7 +394,23 @@ CleverCSS from the `sandbox download directory`_.
 Using The Library
 -----------------
 
-XXX: write me
+Using CleverCSS is straightforward.  If you want to use it from within python
+you can just import `clevercss` and call the `convert()` function with the
+clevercss source code.  If you want to provide defaults for variables you can
+pass it a dict of strings with valid CleverCSS expressions.
+
+Here a small example::
+
+    import clevercss
+    print clevercss.convert('''
+    body:
+      background-color: $background_color
+    ''', {'background_color: 'red.darken(10)'})
+
+If you want to use it from the shell you can use the `clevercss.py` script.
+For usage help use this command::
+
+    clevercss.py --help
 
 
 .. _easy_install: http://peak.telecommunity.com/dist/ez_setup.py
