@@ -385,7 +385,7 @@ with the following command::
 command as system administrator)
 
 If you don't have `easy_install`, you can download the most recent version of
-CleverCSS from the `sandbox download directory`_.
+CleverCSS from the `cheeseshop`_.
 
 
 Using The Library
@@ -411,4 +411,4 @@ For usage help use this command::
 
 
 .. _easy_install: http://peak.telecommunity.com/dist/ez_setup.py
-.. _sandbox download directory: http://sandbox.pocoo.org/downloads/
+.. _cheeseshop: http://pypi.python.org/pypi/CleverCSS/
