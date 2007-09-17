@@ -10,8 +10,6 @@ The most obvious difference to CSS is the syntax: it is indentation based and
 not flat.  While this is obviously against the Python Zen, it's nonetheless a
 good idea for structural styles.
 
-.. XXX why is it against the Python Zen?
-
 
 Nutshell
 ========
@@ -160,8 +158,6 @@ separator.  You can do so by using the ampersand sign::
     body:
       & > div.header:
         padding: 3px
-
-.. XXX why is that necessary?
 
 Basically the nested rule is moved one layer up and the ampersand is replaced
 with the parent rule::
