@@ -232,7 +232,7 @@ __all__ = ['convert']
 
 # regular expresssions for the normal parser
 _var_def_re = re.compile(r'^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)')
-_def_re = re.compile(r'^((?:[a-zA-Z-]+)(?:\s*,\s*[a-zA-Z-]+))+\s*:\s*(.+)')
+_def_re = re.compile(r'^([a-zA-Z-]+(?:\s*,\s*[a-zA-Z-]+)*)\s*:\s*(.+)')
 _line_comment_re = re.compile(r'//.*?$')
 
 # list of operators
@@ -1189,6 +1189,7 @@ class Parser(object):
         def parse_definition():
             m = _def_re.search(line)
             if m is None:
+                print `line`
                 fail('invalid syntax for style definition')
             keys = tuple(x.strip() for x in m.group(1).split(','))
             return lineiter.lineno, keys, m.group(2)
