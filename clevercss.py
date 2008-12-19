@@ -911,8 +911,7 @@ class Value(Literal):
             return Value(calc(self.value, other.value), self.unit)
         elif isinstance(other, Value):
             if self.unit == other.unit:
-                return Value(self.value + other.value, other.unit,
-                             lineno=self.lineno)
+                return Value(calc(self.value, other.value), self.unit, lineno=self.lineno)
             self_unit_type = _conv_mapping.get(self.unit)
             other_unit_type = _conv_mapping.get(other.unit)
             if not self_unit_type or not other_unit_type or \
