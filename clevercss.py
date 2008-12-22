@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+#-*- coding: utf-8 -*-
 """
     CleverCSS
     ~~~~~~~~~
@@ -223,6 +223,9 @@
 import re
 import colorsys
 import operator
+
+import logging as log
+log.basicConfig(level=log.DEBUG,)
 
 
 VERSION = '0.1'
@@ -649,7 +652,8 @@ class Expr(object):
         return self
 
     def add(self, other, context):
-        return String(self.to_string(context) + other.to_string(context))
+        val = String(self.to_string(context) + other.to_string(context))
+        return val
 
     def sub(self, other, context):
         raise EvalException(self.lineno, 'cannot substract %s from %s' %
@@ -694,6 +698,9 @@ class Expr(object):
             ', '.join('%s=%r' % item for item in
                       self.__dict__.iteritems())
         )
+
+    def __str__(self):
+        return self.to_string(None)
 
 
 class ImplicitConcat(Expr):
@@ -814,7 +821,8 @@ class Number(Literal):
         elif isinstance(other, Value):
             return Value(self.value + other.value, other.unit,
                          lineno=self.lineno)
-        return Literal.add(self, other, context)
+        val = Literal.add(self, other, context)
+        return val
 
     def sub(self, other, context):
         if isinstance(other, Number):
@@ -823,6 +831,7 @@ class Number(Literal):
             return Value(self.value - other.value, other.unit,
                          lineno=self.lineno)
         return Literal.sub(self, other, context)
+
 
     def mul(self, other, context):
         if isinstance(other, Number):
@@ -874,12 +883,20 @@ class Value(Literal):
         self.unit = unit
 
     def add(self, other, context):
-        return self._conv_calc(other, context, operator.add, Literal.add,
+        val =  self._conv_calc(other, context, operator.add, Literal.add,
                                'cannot add %s and %s')
+        return val
+
+    def __add__(self, other):
+        return self.add(other,None)
+    def __radd__(self, other):
+        return self.add(other,None)
 
     def sub(self, other, context):
         return self._conv_calc(other, context, operator.sub, Literal.sub,
                                'cannot subtract %s from %s')
+    def __sub__(self, other):
+        return self.sub(other,None)
 
     def mul(self, other, context):
         if isinstance(other, Number):
@@ -909,6 +926,8 @@ class Value(Literal):
     def _conv_calc(self, other, context, calc, fallback, msg):
         if isinstance(other, Number):
             return Value(calc(self.value, other.value), self.unit)
+        elif isinstance(other, int) or isinstance(other, float):
+            return Value(calc(self.value, other), self.unit)
         elif isinstance(other, Value):
             if self.unit == other.unit:
                 return Value(calc(self.value, other.value), self.unit, lineno=self.lineno)
@@ -950,6 +969,8 @@ def brighten_color(color, context, amount=None):
                                 'calculations.' % amount.unit)
     elif isinstance(amount, Number):
         lightness += (amount.value / 100.0)
+    elif isinstance(amount, int):
+        lightness += (amount / 100.0)
     if lightness > 1:
         lightness = 1.0
     return Color(hls_to_rgb(hue, lightness, saturation))
@@ -982,6 +1003,12 @@ class Color(Literal):
         'darken':   darken_color,
         'hex':      lambda x, c: Color(x.value, x.lineno)
     }
+
+    def brighten(self, amt):
+        return brighten_color(self, None, amt)
+
+    def darken(self, amt):
+        return darken_color(self, None, amt)
 
     def __init__(self, value, lineno=None):
         self.from_name = False
@@ -1192,6 +1219,8 @@ class Parser(object):
             return lineiter.lineno, m.group(1), m.group(2)
 
         for lineno, line in lineiter:
+            log.debug('%s(#%s)'%(80*'-',lineno))
+            log.debug('%s'%(line))
             raw_line = line.rstrip().expandtabs()
             line = raw_line.lstrip()
             indention = len(raw_line) - len(line)
@@ -1203,6 +1232,8 @@ class Parser(object):
                 state_stack.append(new_state)
                 indention_stack.append(indention)
                 new_state = None
+                log.debug('%s| %s'%(' '*indention, indention_stack))
+                log.debug('%s|   state_stack=%s'%(' '*indention, state_stack))
 
             # dedenting
             elif indention < indention_stack[-1]:
@@ -1218,6 +1249,8 @@ class Parser(object):
                                                     key, val))
                             indention_stack.pop()
                             state_stack.pop()
+                            log.debug('%s| %s'%(' '*indention, indention_stack))
+                            log.debug('%s|   state_stack=%s'%(' '*indention, state_stack))
                         break
                 else:
                     fail('invalid dedent')
