@@ -899,20 +899,17 @@ class Value(Literal):
         return self.sub(other,None)
 
     def mul(self, other, context):
-        if isinstance(other, Number):
-            return Value(self.value * other.value, self.unit,
-                         lineno=self.lineno)
-        return Literal.mul(self, other, context)
+        return self._conv_calc(other, context, operator.mul, Literal.mul,
+                               'cannot multiply %s from %s')
+    def __mul__(self, other):
+        return self.mul(other, None)
 
     def div(self, other, context):
-        if isinstance(other, Number):
-            try:
-                return Value(self.value / other.value, self.unit,
-                             lineno=self.lineno)
-            except ZeroDivisionError:
-                raise EvalException(self.lineno, 'cannot divide by zero',
-                                    lineno=self.lineno)
-        return Literal.div(self, other, context)
+        return self._conv_calc(other, context, operator.div, Literal.div,
+                               'cannot divide %s from %s')
+
+    def __div__(self, other):
+        return self.div(other,None)
 
     def mod(self, other, context):
         if isinstance(other, Number):
