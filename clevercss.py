@@ -899,10 +899,11 @@ class Value(Literal):
         return self.sub(other,None)
 
     def mul(self, other, context):
-        if isinstance(other, Number):
-            return Value(self.value * other.value, self.unit,
-                         lineno=self.lineno)
-        return Literal.mul(self, other, context)
+        return self._conv_calc(other, context, operator.sub, Literal.mul,
+                               'cannot multiply %s by %s')
+
+    def __mul__(self, other):
+        return self.mul(other,None)
 
     def div(self, other, context):
         if isinstance(other, Number):
@@ -913,6 +914,7 @@ class Value(Literal):
                 raise EvalException(self.lineno, 'cannot divide by zero',
                                     lineno=self.lineno)
         return Literal.div(self, other, context)
+
 
     def mod(self, other, context):
         if isinstance(other, Number):
