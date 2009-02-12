@@ -1624,7 +1624,7 @@ def main():
     # convert some files
     else:
         for fn in sys.argv[1:]:
-            target = fn.rsplit('.', 1)[-1] + '.css'
+            target = fn.rsplit('.', 1)[0] + '.css'
             if fn == target:
                 sys.stderr.write('Error: same name for source and target file'
                                  ' "%s".' % fn)
