@@ -1,7 +1,7 @@
 import sys, os
 from django import template
 import settings
-from meetings.deps.clevercss import convert, ParserError, EvalException
+from clevercss import convert, ParserError, EvalException
 
 
 register = template.Library()
