@@ -1,0 +1,12 @@
+Metadata-Version: 1.0
+Name: CleverCSS
+Version: 0.1
+Summary: funky css preprocessor dammit
+Home-page: http://sandbox.pocoo.org/clevercss/
+Author: Armin Ronacher
+Author-email: armin.ronacher@active-4.com
+License: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Programming Language :: Python
