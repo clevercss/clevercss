@@ -961,7 +961,7 @@ def brighten_color(color, context, amount=None):
         if amount.unit == '%':
             if not amount.value:
                 return color
-            lightness *= 1.0 + amount.value / 100.0
+            lightness += (1-lightness) * (1.0 - 100.0/(100.0 + amount.value))
         else:
             raise EvalException(self.lineno, 'invalid unit %s for color '
                                 'calculations.' % amount.unit)
@@ -982,7 +982,7 @@ def darken_color(color, context, amount=None):
         if amount.unit == '%':
             if not amount.value:
                 return color
-            lightness *= amount.value / 100.0
+            lightness *= (100.0-amount.value) / 100.0
         else:
             raise EvalException(self.lineno, 'invalid unit %s for color '
                                 'calculations.' % amount.unit)
