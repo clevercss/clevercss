@@ -454,7 +454,7 @@ def rgb_to_hls(red, green, blue):
 def hls_to_rgb(hue, saturation, lightness):
     """Convert HSL back to RGB."""
     t = colorsys.hls_to_rgb(hue, saturation, lightness)
-    return tuple(int(x * 255) for x in t)
+    return tuple(int(round(x * 255)) for x in t)
 
 
 class ParserError(Exception):
