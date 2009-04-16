@@ -225,7 +225,7 @@ import colorsys
 import operator
 
 import logging as log
-log.basicConfig(level=log.WARN,)
+log.basicConfig(level=log.DEBUG,)
 
 
 VERSION = '0.1'
@@ -1215,7 +1215,6 @@ class Parser(object):
             if m is None:
                 fail('invalid syntax for style definition')
             return lineiter.lineno, m.group(1), m.group(2)
-        num_rules = 0
 
         for lineno, line in lineiter:
             log.debug('%s(#%s)'%(80*'-',lineno))
@@ -1226,7 +1225,6 @@ class Parser(object):
 
             # indenting
             if indention > indention_stack[-1]:
-                num_rules = 0
                 if not new_state:
                     fail('unexpected indent')
                 state_stack.append(new_state)
@@ -1237,7 +1235,6 @@ class Parser(object):
 
             # dedenting
             elif indention < indention_stack[-1]:
-                num_rules = 0
                 for level in indention_stack:
                     if level == indention:
                         while indention_stack[-1] != level:
@@ -1257,8 +1254,8 @@ class Parser(object):
                     fail('invalid dedent')
 
             # new state but no indention. bummer
-            #elif new_state:
-                #fail('expected definitions, found nothing')
+            elif new_state:
+                fail('expected definitions, found nothing')
 
             # end of data
             if line == '__END__':
@@ -1273,20 +1270,13 @@ class Parser(object):
                         fail('empty rule')
                     new_state = 'rule'
                     new_rule = (s_rule, [], [])
-                    if num_rules == 0:
-                        rule[1].append(new_rule)
-                        rule_stack.append(rule)
-                        old_rule = rule
-                    else:
-                        old_rule[1][-1] = ('%s, %s'%(old_rule[1][-1][0],s_rule),old_rule[1][-1][1], old_rule[1][-1][2])
-                        new_rule = old_rule[1][-1]
+                    rule[1].append(new_rule)
+                    rule_stack.append(rule)
                     rule = new_rule
-                    num_rules += 1
 
                 # if we in a root block we don't consume group blocks
                 # or style definitions but variable defs
                 elif state_stack[-1] == 'root':
-                    num_rules = 0
                     if '=' in line:
                         m = _var_def_re.search(line)
                         if m is None:
@@ -1301,7 +1291,6 @@ class Parser(object):
 
                 # definition group blocks
                 elif line.endswith('->'):
-                    num_rules = 0
                     group_prefix = line[:-2].rstrip()
                     if not group_prefix:
                         fail('no group prefix defined')
@@ -1310,12 +1299,10 @@ class Parser(object):
 
                 # otherwise parse a style definition.
                 else:
-                    num_rules = 0
                     rule[2].append(parse_definition())
 
             # group blocks
             elif state_stack[-1] == 'group_block':
-                num_rules = 0
                 group_block_stack[-1][1].append(parse_definition())
 
             # something unparseable happened
