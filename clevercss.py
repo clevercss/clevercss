@@ -455,7 +455,7 @@ def rgb_to_hls(red, green, blue):
 def hls_to_rgb(hue, saturation, lightness):
     """Convert HSL back to RGB."""
     t = colorsys.hls_to_rgb(hue, saturation, lightness)
-    return tuple(int(x * 255) for x in t)
+    return tuple(int(round(x * 255)) for x in t)
 
 
 class ParserError(Exception):
@@ -601,13 +601,44 @@ class Engine(object):
     def to_css(self, context=None):
         """Evaluate the code and generate a CSS file."""
         blocks = []
+        current_media = None
         for selectors, defs in self.evaluate(context):
-            block = []
-            block.append(u',\n'.join(selectors) + ' {')
-            for key, value in defs:
-                block.append(u'  %s: %s;' % (key, value))
-            block.append('}')
-            blocks.append(u'\n'.join(block))
+
+            # classify CSS definitions by media type
+            selectors_by_media = {}
+            for s in selectors:
+                media_defs = re.findall(r'@media\s+(\w+)', s)
+                if media_defs:
+                    media = media_defs[-1]
+                    s = re.sub(r'@media\s+\w+\s*', '', s)
+                else:
+                    media = None
+                sbm = selectors_by_media.setdefault(media, ([], defs))
+                sbm[0].append(s)
+
+            # process definitions of each media type separately
+            for media, (selectors, defs) in selectors_by_media.items():
+                if current_media != media:
+                    # media type is changing
+                    if current_media is not None:
+                        # close previous media type
+                        blocks.append('} /* @media %s */' % current_media)
+                    if blocks:
+                        # add vertical space for clarity
+                        blocks.append('')
+                    if media is not None:
+                        # open new media type
+                        blocks.append(u'@media %s {' % media)
+                    current_media = media
+                block = []
+                block.append(u',\n'.join(selectors) + ' {')
+                for key, value in defs:
+                    block.append(u'  %s: %s;' % (key, value))
+                block.append('}')
+                blocks.append(u'\n'.join(block))
+        # close any open media type definition
+        if current_media is not None:
+            blocks.append('} /* @media %s */' % current_media)
         return u'\n\n'.join(blocks)
 
 
