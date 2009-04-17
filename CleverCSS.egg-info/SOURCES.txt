@@ -1,7 +1,0 @@
-.gitignore
-clevercss.py
-setup.py
-CleverCSS.egg-info/PKG-INFO
-CleverCSS.egg-info/SOURCES.txt
-CleverCSS.egg-info/dependency_links.txt
-CleverCSS.egg-info/top_level.txt
