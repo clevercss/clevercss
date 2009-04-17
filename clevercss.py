@@ -225,7 +225,6 @@ import colorsys
 import operator
 
 import logging as log
-log.basicConfig(level=log.DEBUG,)
 
 
 VERSION = '0.1'
@@ -235,7 +234,7 @@ __all__ = ['convert']
 
 # regular expresssions for the normal parser
 _var_def_re = re.compile(r'^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)')
-_def_re = re.compile(r'^([a-zA-Z-]+)\s*:\s*(.+)')
+_def_re = re.compile(r'^([a-zA-Z-]+(?:\s*,\s*[a-zA-Z-]+)*)\s*:\s*(.+)')
 _line_comment_re = re.compile(r'//.*?$')
 
 # list of operators
@@ -1244,8 +1243,10 @@ class Parser(object):
         def parse_definition():
             m = _def_re.search(line)
             if m is None:
+                print `line`
                 fail('invalid syntax for style definition')
-            return lineiter.lineno, m.group(1), m.group(2)
+            keys = tuple(x.strip() for x in m.group(1).split(','))
+            return lineiter.lineno, keys, m.group(2)
 
         for lineno, line in lineiter:
             log.debug('%s(#%s)'%(80*'-',lineno))
@@ -1273,9 +1274,10 @@ class Parser(object):
                                 rule = rule_stack.pop()
                             elif state_stack[-1] == 'group_block':
                                 name, part_defs = group_block_stack.pop()
-                                for lineno, key, val in part_defs:
-                                    rule[2].append((lineno, name + '-' +
-                                                    key, val))
+                                for lineno, keys, val in part_defs:
+                                    for key in keys:
+                                        rule[2].append((lineno, name + '-' +
+                                                        key, val))
                             indention_stack.pop()
                             state_stack.pop()
                             log.debug('%s| %s'%(' '*indention, indention_stack))
@@ -1330,7 +1332,9 @@ class Parser(object):
 
                 # otherwise parse a style definition.
                 else:
-                    rule[2].append(parse_definition())
+                    lineno, keys, value = parse_definition()
+                    for key in keys:
+                        rule[2].append((lineno, key, value))
 
             # group blocks
             elif state_stack[-1] == 'group_block':
@@ -1594,6 +1598,10 @@ def convert(source, context=None):
 def main():
     """Entrypoint for the shell."""
     import sys
+
+    if '--debug' in sys.argv:
+        log.basicConfig(level=log.DEBUG,)
+        sys.argv.remove('--debug')
 
     # help!
     if '--help' in sys.argv:
