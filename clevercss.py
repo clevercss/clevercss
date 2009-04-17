@@ -25,16 +25,17 @@
                 bottom: $base_padding + 2
             background-color: $background_color
 
-        div.foo:
-            width: "Hello World".length() * 20px
-            foo: (foo, bar, baz, 42).join('/')
+        @media screen:
+            div.foo:
+                width: "Hello World".length() * 20px
+                foo: (foo, bar, baz, 42).join('/')
 
-        a:
-            color: $link_color
-            &:hover:
-                color: $link_color.darken(30%)
-            &:active:
-                color: $link_color.brighten(10%)
+            a:
+                color: $link_color
+                &:hover:
+                    color: $link_color.darken(30%)
+                &:active:
+                    color: $link_color.brighten(10%)
 
         div.navigation:
             height: 1.2em
@@ -51,6 +52,10 @@
                         height: 1em
                         padding: 0.1em
             foo: (1 2 3).string()
+
+        @media print:
+            div.navigation:
+                display: none
 
         __END__
         this is ignored, but __END__ as such is completely optional.
