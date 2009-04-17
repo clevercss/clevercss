@@ -187,6 +187,76 @@ This would output a CSS like this::
 **Note:** multiple occurrences of the ampersand symbol are replaced!
 
 
+Media types
+-----------
+
+Media types are implemented as special selectors::
+
+    @media print:
+      #navigation:
+        display: none
+
+This will output::
+
+    @media print {
+
+    #navigation {
+      display: none;
+    }
+
+    } /* @media print */
+
+You can also do funky things like nest media types or combine them with other
+selectors::
+
+    #header:
+      border: solid #889 1px
+      @media screen:
+        background: #ccd
+        color: #abc
+        h1:
+          font-weight: bold
+          @media print:
+            font-size: 150%
+        @media print h2:
+          font-size: 108%
+
+And you'll get what you expected::
+
+    #header {
+      border: solid #888899 1px;
+    }
+
+
+
+    @media screen {
+
+    #header  {
+      background: #ccccdd;
+      color: #aabbcc;
+    }
+
+    #header h1 {
+      font-weight: bold;
+    }
+
+    } /* @media screen */
+
+
+
+    @media print {
+
+    #header h1  {
+      font-size: 150%;
+    }
+
+    #header h2 {
+      font-size: 108%;
+    }
+
+    } /* @media print */
+
+
 Attributes
 ----------
 
