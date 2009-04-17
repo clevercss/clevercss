@@ -225,7 +225,6 @@ import colorsys
 import operator
 
 import logging as log
-log.basicConfig(level=log.DEBUG,)
 
 
 VERSION = '0.1'
@@ -1568,6 +1567,10 @@ def convert(source, context=None):
 def main():
     """Entrypoint for the shell."""
     import sys
+
+    if '--debug' in sys.argv:
+        log.basicConfig(level=log.DEBUG,)
+        sys.argv.remove('--debug')
 
     # help!
     if '--help' in sys.argv:
