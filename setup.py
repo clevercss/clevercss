@@ -81,7 +81,7 @@ setup(
     download_url='http://github.com/dziegler/clevercss/tree',
     py_modules=['clevercss'],
     description='funky css preprocessor dammit',
-    description_full=__doc__,
+    long_description=__doc__,
     classifiers=[
         'License :: OSI Approved :: BSD License',
         'Programming Language :: Python'
