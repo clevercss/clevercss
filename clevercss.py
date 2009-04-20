@@ -233,7 +233,7 @@ __all__ = ['convert']
 # regular expresssions for the normal parser
 _var_def_re = re.compile(r'^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)')
 _def_re = re.compile(r'^([a-zA-Z-]+)\s*:\s*(.+)')
-_line_comment_re = re.compile(r'//.*?$')
+_line_comment_re = re.compile(r'(?<!:)//.*?$')
 
 # list of operators
 _operators = ['+', '-', '*', '/', '%', '(', ')', ';', ',']
@@ -911,7 +911,7 @@ class Value(Literal):
             return Value(calc(self.value, other.value), self.unit)
         elif isinstance(other, Value):
             if self.unit == other.unit:
-                return Value(self.value + other.value, other.unit,
+                return Value(calc(self.value,other.value), other.unit,
                              lineno=self.lineno)
             self_unit_type = _conv_mapping.get(self.unit)
             other_unit_type = _conv_mapping.get(other.unit)
@@ -1581,7 +1581,7 @@ def main():
     # convert some files
     else:
         for fn in sys.argv[1:]:
-            target = fn.rsplit('.', 1)[-1] + '.css'
+            target = fn.rsplit('.', 1)[0] + '.css'
             if fn == target:
                 sys.stderr.write('Error: same name for source and target file'
                                  ' "%s".' % fn)
