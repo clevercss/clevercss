@@ -78,7 +78,7 @@ setup(
     url='http://sandbox.pocoo.org/clevercss/',
     py_modules=['clevercss'],
     description='funky css preprocessor dammit',
-    description_full=__doc__,
+    long_description=__doc__,
     classifiers=[
         'License :: OSI Approved :: BSD License',
         'Programming Language :: Python'
