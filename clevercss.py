@@ -235,7 +235,7 @@ __all__ = ['convert']
 # regular expresssions for the normal parser
 _var_def_re = re.compile(r'^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)')
 _def_re = re.compile(r'^([a-zA-Z-]+(?:\s*,\s*[a-zA-Z-]+)*)\s*:\s*(.+)')
-_line_comment_re = re.compile(r'//.*?$')
+_line_comment_re = re.compile(r'(?<!:)//.*?$')
 
 # list of operators
 _operators = ['+', '-', '*', '/', '%', '(', ')', ';', ',']
