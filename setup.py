@@ -69,7 +69,7 @@ output of the above file::
 But that's only a small example of what you can do with CleverCSS.  Have a look
 at the following documentation of CleverCSS for more details.
 """
-from distutils.core import setup
+from setuptools import setup
 setup(
     name='CleverCSS',
     author='Armin Ronacher',
@@ -85,5 +85,11 @@ setup(
     classifiers=[
         'License :: OSI Approved :: BSD License',
         'Programming Language :: Python'
-    ]
+    ],
+    entry_points = {
+        'console_scripts':[
+            'clevercss = clevercss:main'
+        ]
+    },
+    
 )
