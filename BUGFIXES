@@ -1,6 +1,8 @@
 List of bug fixes since CleverCSS-0.1
 ===================================
 
+9/01/09 - v.0.1.4 - submitted by David Niergarth and 'Lasse' - Missing None check in Engine.evaluate which causes context to always be reset to {}.
+
 4/20/09 - v.0.1.3 - submitted by Antti Kaihola - Using the rgb_to_hls() and hls_to_rgb() functions in CleverCSS to convert colors back and forth reveals a mistake in the HLS to RGB algorithm. Fractional parts are stripped when rounding should be done instead.
 
 4/15/09 - v.0.1.2 - submited by David Ziegler - // comments out a line, which causes problems if you want to make an external http request. For example, background: url(http://static.example.com/image.png) would throw an error because //static.example.com/image.png was being parsed as a comment. Updated the regular expression so that :// expressions will not be parsed as comments.

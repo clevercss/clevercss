@@ -585,7 +585,8 @@ class Engine(object):
     def evaluate(self, context=None):
         """Evaluate code."""
         expr = None
-        context = {}
+        if not isinstance(context, dict): 
+            context = {}
         for key, value in context.iteritems():
             expr = self._parser.parse_expr(1, value)
             context[key] = expr
