@@ -1534,45 +1534,59 @@ def convert(source, context=None):
 def main():
     """Entrypoint for the shell."""
     import sys
+    import os
+    from optparse import OptionParser
 
-    # help!
-    if '--help' in sys.argv:
-        print 'usage: %s <file 1> ... <file n>' % sys.argv[0]
-        print '  if called with some filenames it will read each file, cut of'
-        print '  the extension and append a ".css" extension and save. If '
-        print '  the target file has the same name as the source file it will'
-        print '  abort, but if it overrides a file during this process it will'
-        print '  continue. This is a desired functionality. To avoid that you'
-        print '  must not give your source file a .css extension.'
-        print
-        print '  if you call it without arguments it will read from stdin and'
-        print '  write the converted css to stdout.'
-        print
-        print '  called with the --eigen-test parameter it will evaluate the'
-        print '  example from the module docstring.'
-        print
-        print '  to get a list of known color names call it with --list-colors'
+    usage =     'usage: %prog <file 1> ... <file n>\n' \
+    '  if called with some filenames it will read each file, cut of\n' \
+    '  the extension and append a ".css" extension and save. If \n' \
+    '  the target file has the same name as the source file it will\n' \
+    '  abort, but if it overrides a file during this process it will\n' \
+    '  continue. This is a desired functionality. To avoid that you\n' \
+    '  must not give your source file a .css extension.\n\n' \
+    '  if you call it without arguments it will read from stdin and\n' \
+    '  write the converted css to stdout.'
+
+    parser = OptionParser(usage=usage)
+    parser.add_option("--version",
+                      action="store_true",
+                      dest="version",
+                      help="print the program's version")
+    parser.add_option("--eigen-test",
+                      action="store_true",
+                      dest="eigentest",
+                      help="process and print a sample CleverCSS file as CSS")
+    parser.add_option("-l", "--list-colors",
+                      action="store_true",
+                      dest="list_colors",
+                      help="list all the colors we know about")
+    parser.add_option("-O", "--out-dir",
+                      action="store",
+                      type="string",
+                      dest="out_dir",
+                      help="place the output files in the specified directory")
+    (options, args) = parser.parse_args()
 
     # version
-    elif '--version' in sys.argv:
+    if options.version:
         print 'CleverCSS Version %s' % VERSION
         print 'Licensed under the BSD license.'
         print '(c) Copyright 2007 by Armin Ronacher and Georg Brandl.'
 
     # evaluate the example from the docstring.
-    elif '--eigen-test' in sys.argv:
+    elif options.eigentest:
         print convert('\n'.join(l[8:].rstrip() for l in
                       re.compile(r'Example::\n(.*?)__END__(?ms)')
                         .search(__doc__).group(1).splitlines()))
 
     # color list
-    elif '--list-colors' in sys.argv:
+    elif options.list_colors:
         print '%s known colors:' % len(_colors)
         for color in sorted(_colors.items()):
             print '  %-30s%s' % color
 
     # read from stdin and write to stdout
-    elif len(sys.argv) == 1:
+    elif len(args) == 0:
         try:
             print convert(sys.stdin.read())
         except (ParserError, EvalException), e:
@@ -1581,7 +1595,7 @@ def main():
 
     # convert some files
     else:
-        for fn in sys.argv[1:]:
+        for fn in args:
             target = fn.rsplit('.', 1)[0] + '.css'
             if fn == target:
                 sys.stderr.write('Error: same name for source and target file'
@@ -1594,6 +1608,8 @@ def main():
                 except (ParserError, EvalException), e:
                     sys.stderr.write('Error in file %s: %s\n' % (fn, e))
                     sys.exit(1)
+                if options.out_dir:
+                    target = os.path.join(options.out_dir, os.path.basename(target))
                 print "Writing output to %s..." % target
                 dst = file(target, 'w')
                 try:
