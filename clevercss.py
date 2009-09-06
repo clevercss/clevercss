@@ -585,7 +585,7 @@ class Engine(object):
     def evaluate(self, context=None):
         """Evaluate code."""
         expr = None
-        if not isinstance(context, dict): 
+        if not isinstance(context, dict):
             context = {}
         for key, value in context.iteritems():
             expr = self._parser.parse_expr(1, value)
@@ -1594,6 +1594,7 @@ def main():
                 except (ParserError, EvalException), e:
                     sys.stderr.write('Error in file %s: %s\n' % (fn, e))
                     sys.exit(1)
+                print "Writing output to %s..." % target
                 dst = file(target, 'w')
                 try:
                     dst.write(converted)
