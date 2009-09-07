@@ -1596,7 +1596,12 @@ def main():
     # convert some files
     else:
         for fn in args:
+            fn = os.path.join(os.getcwd(), fn)
             target = fn.rsplit('.', 1)[0] + '.css'
+            if options.out_dir:
+                target = os.path.join(os.getcwd(), options.out_dir, os.path.basename(target))
+            else:
+                target = os.path.join(target)
             if fn == target:
                 sys.stderr.write('Error: same name for source and target file'
                                  ' "%s".' % fn)
@@ -1608,8 +1613,6 @@ def main():
                 except (ParserError, EvalException), e:
                     sys.stderr.write('Error in file %s: %s\n' % (fn, e))
                     sys.exit(1)
-                if options.out_dir:
-                    target = os.path.join(options.out_dir, os.path.basename(target))
                 print "Writing output to %s..." % target
                 dst = file(target, 'w')
                 try:
