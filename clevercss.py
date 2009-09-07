@@ -1600,8 +1600,6 @@ def main():
             target = fn.rsplit('.', 1)[0] + '.css'
             if options.out_dir:
                 target = os.path.join(os.getcwd(), options.out_dir, os.path.basename(target))
-            else:
-                target = os.path.join(target)
             if fn == target:
                 sys.stderr.write('Error: same name for source and target file'
                                  ' "%s".' % fn)
