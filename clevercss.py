@@ -604,12 +604,12 @@ class Engine(object):
         blocks = []
         for selectors, defs in self.evaluate(context):
             block = []
-            block.append(u',\n'.join(selectors) + ' {')
+            block.append(u','.join(selectors) + '{')
             for key, value in defs:
-                block.append(u'  %s: %s;' % (key, value))
+                block.append(u'%s:%s;' % (key, value))
             block.append('}')
-            blocks.append(u'\n'.join(block))
-        return u'\n\n'.join(blocks)
+            blocks.append(u''.join(block))
+        return u''.join(blocks)
 
 
 class TokenStream(object):
@@ -1566,7 +1566,7 @@ def main():
 
     # evaluate the example from the docstring.
     if options.eigen_test:
-        print convert('\n'.join(l[8:].rstrip() for l in
+        print convert(''.join(l[8:].rstrip() for l in
                       re.compile(r'Example::\n(.*?)__END__(?ms)')
                         .search(__doc__).group(1).splitlines()))
         return
