@@ -220,9 +220,12 @@
     :copyright: Copyright 2007 by Armin Ronacher, Georg Brandl.
     :license: BSD License
 """
-import re
 import colorsys
 import operator
+import optparse
+import os
+import re
+import sys
 
 
 VERSION = '0.1'
@@ -1533,46 +1536,50 @@ def convert(source, context=None):
 
 def main():
     """Entrypoint for the shell."""
-    import sys
+    parser = optparse.OptionParser()
 
-    # help!
-    if '--help' in sys.argv:
-        print 'usage: %s <file 1> ... <file n>' % sys.argv[0]
-        print '  if called with some filenames it will read each file, cut of'
-        print '  the extension and append a ".css" extension and save. If '
-        print '  the target file has the same name as the source file it will'
-        print '  abort, but if it overrides a file during this process it will'
-        print '  continue. This is a desired functionality. To avoid that you'
-        print '  must not give your source file a .css extension.'
-        print
-        print '  if you call it without arguments it will read from stdin and'
-        print '  write the converted css to stdout.'
-        print
-        print '  called with the --eigen-test parameter it will evaluate the'
-        print '  example from the module docstring.'
-        print
-        print '  to get a list of known color names call it with --list-colors'
+    parser.usage = """%s <file 1> ... <file n>
+    if called with some filenames it will read each file, cut off the extension
+    and append a ".css" extension and save. If the target target file has the
+    same name as the source file it will abort, but if it overrides a file
+    during this process it will continue. This is a desired functionality. To
+    avoid that you must not give your source file a .css extension.
+
+    if you call it without arguments it will read from stdin and write the
+    converted css to stdout.""" % os.path.basename(sys.argv[0])
+
+    parser.add_option('--version', action='store_true',
+            help="print version info")
+    parser.add_option('--eigen-test', action='store_true',
+            help="evaluate the example from the module docstring")
+    parser.add_option('--list-colors', action='store_true',
+            help="get a list of known color names")
+
+    options, args = parser.parse_args()
 
     # version
-    elif '--version' in sys.argv:
+    if options.version:
         print 'CleverCSS Version %s' % VERSION
         print 'Licensed under the BSD license.'
         print '(c) Copyright 2007 by Armin Ronacher and Georg Brandl.'
+        return
 
     # evaluate the example from the docstring.
-    elif '--eigen-test' in sys.argv:
+    if options.eigen_test:
         print convert('\n'.join(l[8:].rstrip() for l in
                       re.compile(r'Example::\n(.*?)__END__(?ms)')
                         .search(__doc__).group(1).splitlines()))
+        return
 
     # color list
-    elif '--list-colors' in sys.argv:
+    if options.list_colors:
         print '%s known colors:' % len(_colors)
         for color in sorted(_colors.items()):
             print '  %-30s%s' % color
+        return
 
     # read from stdin and write to stdout
-    elif len(sys.argv) == 1:
+    if not args:
         try:
             print convert(sys.stdin.read())
         except (ParserError, EvalException), e:
@@ -1581,7 +1588,7 @@ def main():
 
     # convert some files
     else:
-        for fn in sys.argv[1:]:
+        for fn in args:
             target = fn.rsplit('.', 1)[0] + '.css'
             if fn == target:
                 sys.stderr.write('Error: same name for source and target file'
