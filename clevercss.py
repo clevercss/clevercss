@@ -588,7 +588,7 @@ class Engine(object):
     def evaluate(self, context=None):
         """Evaluate code."""
         expr = None
-        if not isinstance(context, dict): 
+        if not isinstance(context, dict):
             context = {}
         for key, value in context.iteritems():
             expr = self._parser.parse_expr(1, value)
@@ -1579,6 +1579,8 @@ def main():
             help="get a list of known color names")
     parser.add_option('--minified', action='store_true',
             help="output css with no unnecessary whitespace")
+    parser.add_option('--out-dir', type="string",
+            help="place the output files in this directory")
 
     options, args = parser.parse_args()
 
@@ -1591,7 +1593,7 @@ def main():
 
     # evaluate the example from the docstring.
     if options.eigen_test:
-        print convert(''.join(l[8:].rstrip() for l in
+        print convert('\n'.join(l[8:].rstrip() for l in
                       re.compile(r'Example::\n(.*?)__END__(?ms)')
                         .search(__doc__).group(1).splitlines()),
                       minified=options.minified)
@@ -1615,7 +1617,10 @@ def main():
     # convert some files
     else:
         for fn in args:
+            fn = os.path.join(os.getcwd(), fn)
             target = fn.rsplit('.', 1)[0] + '.css'
+            if options.out_dir:
+                target = os.path.join(os.getcwd(), options.out_dir, os.path.basename(target))
             if fn == target:
                 sys.stderr.write('Error: same name for source and target file'
                                  ' "%s".' % fn)
@@ -1627,6 +1632,7 @@ def main():
                 except (ParserError, EvalException), e:
                     sys.stderr.write('Error in file %s: %s\n' % (fn, e))
                     sys.exit(1)
+                print "Writing output to %s..." % target
                 dst = file(target, 'w')
                 try:
                     dst.write(converted)
