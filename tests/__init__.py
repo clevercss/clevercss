@@ -61,13 +61,13 @@ class ConvertTestCase(TestCase):
         self.assertEqual(convert('''body: 
             color: $color 
         ''',{'color':'#eee'}),
-        u'body{color:#eeeeee;}')
+        u'body {\n  color: #eeeeee;\n}')
     
     def test_02_convert(self):
         self.assertEqual(convert('''body:
             background-color: $background_color
         ''', {'background_color': 'red.darken(10)'}),
-        u'body{background-color:#cc0000;}')
+        u'body {\n  background-color: #cc0000;\n}')
 
 if __name__ == '__main__':
     main()
