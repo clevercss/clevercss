@@ -615,15 +615,10 @@ class Engine(object):
 
     def to_css_min(self, context=None):
         """Evaluate the code and generate a CSS file."""
-        blocks = []
-        for selectors, defs in self.evaluate(context):
-            block = []
-            block.append(u','.join(selectors) + '{')
-            for key, value in defs:
-                block.append(u'%s:%s;' % (key, value))
-            block.append('}')
-            blocks.append(u''.join(block))
-        return u''.join(blocks)
+        return u''.join(u'%s{%s}' % (
+                u','.join(s),
+                u';'.join(u'%s:%s' % kv for kv in d))
+            for s, d in self.evaluate(context))
 
 
 class TokenStream(object):
