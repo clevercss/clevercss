@@ -1028,6 +1028,8 @@ class Color(Literal):
         return Literal.div(self, other, context)
 
     def to_string(self, context):
+        if all(x >> 4 == x & 15 for x in self.value):
+            return '#%x%x%x' % tuple(x & 15 for x in self.value)
         code = '#%02x%02x%02x' % self.value
         return self.from_name and _reverse_colors.get(code) or code
 
