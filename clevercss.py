@@ -601,6 +601,20 @@ class Engine(object):
 
     def to_css(self, context=None):
         """Evaluate the code and generate a CSS file."""
+        if context.minified:
+            return self.to_css_min(context)
+        blocks = []
+        for selectors, defs in self.evaluate(context):
+            block = []
+            block.append(u',\n'.join(selectors) + ' {')
+            for key, value in defs:
+                block.append(u'  %s: %s;' % (key, value))
+            block.append('}')
+            blocks.append(u'\n'.join(block))
+        return u'\n\n'.join(blocks)
+
+    def to_css_min(self, context=None):
+        """Evaluate the code and generate a CSS file."""
         blocks = []
         for selectors, defs in self.evaluate(context):
             block = []
@@ -1028,7 +1042,7 @@ class Color(Literal):
         return Literal.div(self, other, context)
 
     def to_string(self, context):
-        if all(x >> 4 == x & 15 for x in self.value):
+        if context.minified and all(x >> 4 == x & 15 for x in self.value):
             return '#%x%x%x' % tuple(x & 15 for x in self.value)
         code = '#%02x%02x%02x' % self.value
         return self.from_name and _reverse_colors.get(code) or code
@@ -1530,9 +1544,16 @@ class Parser(object):
         stream.expect(')', 'op')
         return Call(node, method, args, lineno=stream.lineno)
 
+class Context(dict):
+    def __init__(self, *args, **kwargs):
+        if args == (None,):
+            args = ()
+        super(Context, self).__init__(*args, **kwargs)
 
-def convert(source, context=None):
+def convert(source, context=None, minified=False):
     """Convert a CleverCSS file into a normal stylesheet."""
+    context = Context(context)
+    context.minified = minified
     return Engine(source).to_css(context)
 
 
@@ -1556,6 +1577,8 @@ def main():
             help="evaluate the example from the module docstring")
     parser.add_option('--list-colors', action='store_true',
             help="get a list of known color names")
+    parser.add_option('--minified', action='store_true',
+            help="output css with no unnecessary whitespace")
 
     options, args = parser.parse_args()
 
@@ -1570,7 +1593,8 @@ def main():
     if options.eigen_test:
         print convert(''.join(l[8:].rstrip() for l in
                       re.compile(r'Example::\n(.*?)__END__(?ms)')
-                        .search(__doc__).group(1).splitlines()))
+                        .search(__doc__).group(1).splitlines()),
+                      minified=options.minified)
         return
 
     # color list
@@ -1583,7 +1607,7 @@ def main():
     # read from stdin and write to stdout
     if not args:
         try:
-            print convert(sys.stdin.read())
+            print convert(sys.stdin.read(), minified=options.minified)
         except (ParserError, EvalException), e:
             sys.stderr.write('Error: %s\n' % e)
             sys.exit(1)
@@ -1599,7 +1623,7 @@ def main():
             src = file(fn)
             try:
                 try:
-                    converted = convert(src.read())
+                    converted = convert(src.read(), minified=options.minified)
                 except (ParserError, EvalException), e:
                     sys.stderr.write('Error in file %s: %s\n' % (fn, e))
                     sys.exit(1)
