@@ -69,5 +69,19 @@ class ConvertTestCase(TestCase):
         ''', {'background_color': 'red.darken(10)'}),
         u'body {\n  background-color: #cc0000;\n}')
 
+class MinifiedConvertTestCase(TestCase):
+    def test_01_min_convert(self):
+        self.assertEqual(convert('''body:
+            color: $color
+        ''',{'color':'#eee'}, minified=True),
+        u'body{color:#eee;}')
+
+    def test_02_min_convert(self):
+        self.assertEqual(convert('''body:
+            background-color: $background_color
+        ''', {'background_color': 'red.darken(10)'}, minified=True),
+        u'body{background-color:#c00;}')
+
+
 if __name__ == '__main__':
     main()
