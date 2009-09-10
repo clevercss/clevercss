@@ -74,13 +74,13 @@ class MinifiedConvertTestCase(TestCase):
         self.assertEqual(convert('''body:
             color: $color
         ''',{'color':'#eee'}, minified=True),
-        u'body{color:#eee;}')
+        u'body{color:#eee}')
 
     def test_02_min_convert(self):
         self.assertEqual(convert('''body:
             background-color: $background_color
         ''', {'background_color': 'red.darken(10)'}, minified=True),
-        u'body{background-color:#c00;}')
+        u'body{background-color:#c00}')
 
 
 if __name__ == '__main__':
