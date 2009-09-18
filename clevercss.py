@@ -410,7 +410,7 @@ _colors = {
 _reverse_colors = dict((v, k) for k, v in _colors.iteritems())
 
 # partial regular expressions for the expr parser
-_r_number = '\d+(?:\.\d+)?'
+_r_number = '(?:\s\-)?\d+(?:\.\d+)?'
 _r_string = r"(?:'(?:[^'\\]*(?:\\.[^'\\]*)*)'|" \
             r'\"(?:[^"\\]*(?:\\.[^"\\]*)*)")'
 _r_call = r'([a-zA-Z_][a-zA-Z0-9_]*)\('
@@ -1372,9 +1372,10 @@ class Parser(object):
                     raise ParserError(lineno, 'invalid string escape')
                 return value, 'string'
 
-            rules = ((_operator_re, process('op')),
-                     (_call_re, process('call', 1)),
+            rules = (
                      (_value_re, lambda m: (m.groups(), 'value')),
+                     (_operator_re, process('op')),
+                     (_call_re, process('call', 1)),
                      (_color_re, process('color')),
                      (_number_re, process('number')),
                      (_url_re, process('url', 1)),
