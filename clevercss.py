@@ -1529,6 +1529,10 @@ class Parser(object):
         stream.expect(')', 'op')
         return Call(node, method, args, lineno=stream.lineno)
 
+def eigen_test():
+    return convert('\n'.join(l[8:].rstrip() for l in
+                      re.compile(r'Example::\n(.*?)__END__(?ms)')
+                        .search(__doc__).group(1).splitlines()))
 
 def convert(source, context=None):
     """Convert a CleverCSS file into a normal stylesheet."""
@@ -1565,9 +1569,7 @@ def main():
 
     # evaluate the example from the docstring.
     elif '--eigen-test' in sys.argv:
-        print convert('\n'.join(l[8:].rstrip() for l in
-                      re.compile(r'Example::\n(.*?)__END__(?ms)')
-                        .search(__doc__).group(1).splitlines()))
+        print eigen_test()
 
     # color list
     elif '--list-colors' in sys.argv:

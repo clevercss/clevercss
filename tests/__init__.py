@@ -55,7 +55,7 @@ class HlsRgbFuzzyTestCase(TestCase):
         rgb2hls = rgb_to_hls(*hls2rgb)
         self.assertEqual(rgb2hls, hls)
 
-from clevercss import convert
+from clevercss import convert, eigen_test
 
 class ConvertTestCase(TestCase):
     def test_01_convert(self):
@@ -88,6 +88,60 @@ class ConvertTestCase(TestCase):
           right: -1px;
           bottom: -5px;
         }""").strip())
+
+    def test_eigen(self):
+        self.assertEqual(eigen_test(),dedent("""
+        body {
+          font-family: serif, sans-serif, Verdana, 'Times New Roman';
+          color: #111111;
+          padding-top: 4px;
+          padding-right: 5px;
+          padding-left: 5px;
+          padding-bottom: 4px;
+          background-color: #eeeeee;
+        }
+
+        div.foo {
+          width: 220px;
+          foo: foo/bar/baz/42;
+        }
+
+        a {
+          color: #ff0000;
+        }
+
+        a:hover {
+          color: #4d0000;
+        }
+
+        a:active {
+          color: #ff1a1a;
+        }
+
+        div.navigation {
+          height: 1.2em;
+          padding: 0.2em;
+          foo: '1 2 3';
+        }
+
+        div.navigation ul {
+          margin: 0;
+          padding: 0;
+          list-style: none;
+        }
+
+        div.navigation ul li {
+          float: left;
+          height: 1.2em;
+        }
+
+        div.navigation ul li a {
+          display: block;
+          height: 1em;
+          padding: 0.1em;
+        }
+        """).strip())        
+
 
 from clevercss import LineIterator
 
