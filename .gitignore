@@ -1,0 +1,4 @@
+*.swp
+CleverCSS.egg-info
+build
+dist
