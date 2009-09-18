@@ -1,4 +1,5 @@
 from unittest import TestCase, main
+from textwrap import dedent
 
 from clevercss import rgb_to_hls
 
@@ -70,23 +71,41 @@ class ConvertTestCase(TestCase):
         u'body {\n  background-color: #cc0000;\n}')
         
     def test_math(self):
-        self.assertEqual(convert("""
-div:
-    margin: -2px -2px
-    padding: 2px + 2px
-    top: 1px+1
-    left: 5+5px
-    right: 4px-5px
-    bottom: 0 - 5px
-"""),
-"""div {
-  margin: -2px -2px;
-  padding: 4px;
-  top: 2px;
-  left: 10px;
-  right: -1px;
-  bottom: -5px;
-}""")        
+        self.assertEqual(convert(dedent("""
+        div:
+            margin: -2px -2px
+            padding: 2px + 2px
+            top: 1px+1
+            left: 5+5px
+            right: 4px-5px
+            bottom: 0 - 5px
+        """)), dedent("""
+        div {
+          margin: -2px -2px;
+          padding: 4px;
+          top: 2px;
+          left: 10px;
+          right: -1px;
+          bottom: -5px;
+        }""").strip())
+
+from clevercss import LineIterator
+
+class LineIterTestCase(TestCase):
+    def test_comments(self):
+        line_iter = LineIterator(dedent(
+        """
+        /* block */
+        /* multiblock 
+        */
+                
+        aa, /* comment */bb: 
+            x:1 // comment
+            
+        """))
+        self.assertEqual("\n".join([s[1] for s in line_iter]),
+            "aa, bb:\n    x:1")
+    
 
 if __name__ == '__main__':
     main()
