@@ -68,6 +68,25 @@ class ConvertTestCase(TestCase):
             background-color: $background_color
         ''', {'background_color': 'red.darken(10)'}),
         u'body {\n  background-color: #cc0000;\n}')
+        
+    def test_math(self):
+        self.assertEqual(convert("""
+div:
+    margin: -2px -2px
+    padding: 2px + 2px
+    top: 1px+1
+    left: 5+5px
+    right: 4px-5px
+    bottom: 0 - 5px
+"""),
+"""div {
+  margin: -2px -2px;
+  padding: 4px;
+  top: 2px;
+  left: 10px;
+  right: -1px;
+  bottom: -5px;
+}""")        
 
 if __name__ == '__main__':
     main()
