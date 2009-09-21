@@ -225,7 +225,7 @@ import colorsys
 import operator
 
 
-VERSION = '0.1'
+VERSION = '0.1.5'
 
 __all__ = ['convert']
 
@@ -588,7 +588,7 @@ class Engine(object):
     def evaluate(self, context=None):
         """Evaluate code."""
         expr = None
-        if not isinstance(context, dict): 
+        if not isinstance(context, dict):
             context = {}
         for key, value in context.iteritems():
             expr = self._parser.parse_expr(1, value)
