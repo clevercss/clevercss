@@ -478,11 +478,12 @@ class EvalException(Exception):
 
     def __init__(self, lineno, message):
         self.lineno = lineno
+        self.msg = message
         Exception.__init__(self, message)
 
     def __str__(self):
         return '%s (line %s)' % (
-            self.message,
+            self.msg,
             self.lineno
         )
 
