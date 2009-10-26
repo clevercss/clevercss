@@ -1173,6 +1173,13 @@ class AnnotatingSpriteMap(SpriteMap):
         self._sprites_used = {}
         self.sprite_maps.append(self)
 
+    def read_spritemap(self, fname):
+        self.image_url = "<annotator>"
+        return {}
+
+    def get_sprite_def(self, name):
+        return 0, 0, 100, 100
+
     def annotate_used(self, sprite):
         self._sprites_used[sprite.name] = sprite
 
