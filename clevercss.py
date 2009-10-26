@@ -217,6 +217,28 @@
 
         1, 2, 3, 4, 5
 
+    Spritemaps
+    ----------
+
+    Commonly in CSS, you'll have an image of all your UI elements, and then use
+    background positioning to extract a part of that image. CleverCSS helps you
+    with this, via the `spritemap(fn)` call. For example::
+
+        ui = spritemap('ui.sprites')
+        some_button = $ui.sprite('some_button.png')
+        other_button = $ui.sprite('other_button.png')
+
+        div.some_button:
+            background: $some_button
+
+        div.other_button:
+            background: $other_button
+            width: $other_button.width()
+            height: $other_button.height()
+
+    See the accompanying file "sprites_format.txt" for more information on that
+    file format.
+
     :copyright: Copyright 2007 by Armin Ronacher, Georg Brandl.
     :license: BSD License
 """
