@@ -220,6 +220,7 @@
     :copyright: Copyright 2007 by Armin Ronacher, Georg Brandl.
     :license: BSD License
 """
+import os
 import re
 import colorsys
 import operator
@@ -423,6 +424,7 @@ _value_re = re.compile(r'(%s)(%s)(?![a-zA-Z0-9_])' % (_r_number, '|'.join(_units
 _color_re = re.compile(r'#' + ('[a-fA-f0-9]{1,2}' * 3))
 _string_re = re.compile('%s|([^\s*/();,.+$]+|\.(?!%s))+' % (_r_string, _r_call))
 _url_re = re.compile(r'url\(\s*(%s|.*?)\s*\)' % _r_string)
+_spritemap_re = re.compile(r'spritemap\(\s*(%s|.*?)\s*\)' % _r_string)
 _var_re = re.compile(r'(?<!\\)\$(?:([a-zA-Z_][a-zA-Z0-9_]*)|'
                      r'\{([a-zA-Z_][a-zA-Z0-9_]*)\})')
 _call_re = re.compile(r'\.' + _r_call)
@@ -1117,6 +1119,106 @@ class URL(Literal):
         return 'url(%s)' % Literal.to_string(self, context)
 
 
+class SpriteMap(Expr):
+    name = 'SpriteMap'
+    methods = {
+        'sprite':   lambda x, c, v: Sprite(x, v.value, lineno=v.lineno)
+    }
+    _magic_names = {
+        "__url__": "image_url",
+    }
+
+    def __init__(self, map_fname, fname=None, lineno=None):
+        Expr.__init__(self, lineno=lineno)
+        self.map_fname = map_fname
+        self.fname = fname
+
+    def evaluate(self, context):
+        self.mapping = self.read_spritemap(self.map_fname.to_string(context))
+        return self
+
+    def read_spritemap(self, fname):
+        fpath = os.path.join(os.path.dirname(self.fname), fname)
+        fo = open(fpath, "U")
+        spritemap = {}
+        try:
+            for line in fo:
+                line = line.rstrip("\n")
+                rest = line.split(",")
+                key = rest.pop(0)
+                if key[-2:] == key[:2] == "__":
+                    if key not in self._magic_names:
+                        raise ValueError("%r is not a valid field" % (key,))
+                    att = self._magic_names[key]
+                    setattr(self, att, rest[0])
+                else:
+                    x1, y1, x2, y2 = rest
+                    spritemap[key] = map(int, (x1, y1, x2, y2))
+        finally:
+            fo.close()
+        return spritemap
+
+    def get_sprite_def(self, name):
+        return self.mapping[name]
+
+    def annotate_used(self, sprite):
+        pass
+
+
+class AnnotatingSpriteMap(SpriteMap):
+    sprite_maps = []
+
+    def __init__(self, *args, **kwds):
+        SpriteMap.__init__(self, *args, **kwds)
+        self._sprites_used = {}
+        self.sprite_maps.append(self)
+
+    def annotate_used(self, sprite):
+        self._sprites_used[sprite.name] = sprite
+
+    @classmethod
+    def all_used_sprites(cls):
+        for smap in cls.sprite_maps:
+            yield smap, smap._sprites_used.values()
+
+
+class Sprite(Expr):
+    name = 'Sprite'
+    methods = {
+        'height': lambda x, c: Value(x.height, "px"),
+        'width': lambda x, c: Value(x.width, "px"),
+        'x1': lambda x, c: Value(x.x1, "px"),
+        'y1': lambda x, c: Value(x.y1, "px"),
+        'x2': lambda x, c: Value(x.x2, "px"),
+        'y2': lambda x, c: Value(x.y2, "px")
+    }
+
+    def __init__(self, spritemap, name, lineno=None):
+        self.lineno = lineno if lineno else name.lineno
+        self.spritemap = spritemap
+        self.name = name
+        try:
+            self.coords = spritemap.get_sprite_def(name)
+        except KeyError:
+            raise EvalException(self.lineno, "Couldn't find sprite %r" % name)
+
+    def _get_coords(self):
+        return self.x1, self.y1, self.x2, self.y2
+    def _set_coords(self, value):
+        self.x1, self.y1, self.x2, self.y2 = value
+    coords = property(_get_coords, _set_coords)
+
+    @property
+    def width(self): return self.x2 - self.x1
+    @property
+    def height(self): return self.y2 - self.y1
+
+    def to_string(self, context):
+        self.spritemap.annotate_used(self)
+        return "url('%s') %dpx %dpx" % (self.spritemap.image_url,
+                                        self.x1, self.y1)
+
+
 class Var(Expr):
 
     def __init__(self, name, lineno=None):
@@ -1178,6 +1280,8 @@ class Parser(object):
 
     def __init__(self, fname=None):
         self.fname = fname
+
+    sprite_map_cls = SpriteMap
 
     def preparse(self, source):
         """
@@ -1388,6 +1492,7 @@ class Parser(object):
                      (_color_re, process('color')),
                      (_number_re, process('number')),
                      (_url_re, process('url', 1)),
+                     (_spritemap_re, process('spritemap', 1)),
                      (_string_re, process_string),
                      (_var_re, lambda m: (m.group(1) or m.group(2), 'var')),
                      (_whitespace_re, None))
@@ -1501,6 +1606,13 @@ class Parser(object):
         elif token == 'url':
             stream.next()
             node = URL(value, lineno=stream.lineno)
+        elif token == 'spritemap':
+            stream.next()
+            if value[0] == value[-1] and value[0] in '"\'':
+                value = value[1:-1]
+            value = String(value, lineno=stream.lineno)
+            node = self.sprite_map_cls(value, fname=self.fname,
+                                       lineno=stream.lineno)
         elif token == 'var':
             stream.next()
             node = Var(value, lineno=stream.lineno)
