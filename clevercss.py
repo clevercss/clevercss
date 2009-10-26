@@ -581,9 +581,11 @@ class Engine(object):
     nobody uses this because the `convert` function wraps it.
     """
 
-    def __init__(self, source):
-        self._parser = p = Parser()
-        self.rules, self._vars = p.parse(source)
+    def __init__(self, source, parser=None, fname=None):
+        if parser is None:
+            parser = Parser(fname=fname)
+        self._parser = parser
+        self.rules, self._vars = parser.parse(source)
 
     def evaluate(self, context=None):
         """Evaluate code."""
@@ -1173,6 +1175,9 @@ class Parser(object):
     the value parts.
     """
 
+    def __init__(self, fname=None):
+        self.fname = fname
+
     def preparse(self, source):
         """
         Do the line wise parsing and resolve indents.
@@ -1534,9 +1539,9 @@ def eigen_test():
                       re.compile(r'Example::\n(.*?)__END__(?ms)')
                         .search(__doc__).group(1).splitlines()))
 
-def convert(source, context=None):
+def convert(source, context=None, fname=None):
     """Convert a CleverCSS file into a normal stylesheet."""
-    return Engine(source).to_css(context)
+    return Engine(source, fname=fname).to_css(context)
 
 
 def main():
@@ -1596,7 +1601,7 @@ def main():
             src = file(fn)
             try:
                 try:
-                    converted = convert(src.read())
+                    converted = convert(src.read(), fname=fn)
                 except (ParserError, EvalException), e:
                     sys.stderr.write('Error in file %s: %s\n' % (fn, e))
                     sys.exit(1)
