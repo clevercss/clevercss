@@ -1148,7 +1148,13 @@ class SpriteMap(Expr):
     }
     _magic_names = {
         "__url__": "image_url",
+        "__resources__": "sprite_resource_dir",
+        "__passthru__": "sprite_passthru_url",
     }
+
+    image_url = None
+    sprite_resource_dir = None
+    sprite_passthru_url = None
 
     def __init__(self, map_fname, fname=None, lineno=None):
         Expr.__init__(self, lineno=lineno)
@@ -1156,11 +1162,12 @@ class SpriteMap(Expr):
         self.fname = fname
 
     def evaluate(self, context):
-        self.mapping = self.read_spritemap(self.map_fname.to_string(context))
+        self.map_fpath = os.path.join(os.path.dirname(self.fname),
+                                      self.map_fname.to_string(context))
+        self.mapping = self.read_spritemap(self.map_fpath)
         return self
 
-    def read_spritemap(self, fname):
-        fpath = os.path.join(os.path.dirname(self.fname), fname)
+    def read_spritemap(self, fpath):
         fo = open(fpath, "U")
         spritemap = {}
         try:
@@ -1181,7 +1188,33 @@ class SpriteMap(Expr):
         return spritemap
 
     def get_sprite_def(self, name):
-        return self.mapping[name]
+        if name in self.mapping:
+            return self.mapping[name]
+        elif self.sprite_passthru_url:
+            return self._load_sprite(name)
+        else:
+            raise KeyError(name)
+
+    def _load_sprite(self, name):
+        try:
+            from PIL import Image
+        except ImportError:
+            raise KeyError(name)
+
+        spr_fname = os.path.join(os.path.dirname(self.map_fpath), name)
+        if not os.path.exists(spr_fname):
+            raise KeyError(name)
+
+        im = Image.open(spr_fname)
+        spr_def = (0, 0) + tuple(im.size)
+        self.mapping[name] = spr_def
+        return spr_def
+
+    def get_sprite_url(self, sprite):
+        if self.sprite_passthru_url:
+            return self.sprite_passthru_url + sprite.name
+        else:
+            return self.image_url
 
     def annotate_used(self, sprite):
         pass
@@ -1202,6 +1235,9 @@ class AnnotatingSpriteMap(SpriteMap):
     def get_sprite_def(self, name):
         return 0, 0, 100, 100
 
+    def get_sprite_url(self, sprite):
+        return "<annotated %s>" % (sprite,)
+
     def annotate_used(self, sprite):
         self._sprites_used[sprite.name] = sprite
 
@@ -1214,6 +1250,8 @@ class AnnotatingSpriteMap(SpriteMap):
 class Sprite(Expr):
     name = 'Sprite'
     methods = {
+        'url': lambda x, c: String("url('%s')" % x.spritemap.get_sprite_url(x)),
+        'position': lambda x, c: ImplicitConcat(x._pos_vals(c)),
         'height': lambda x, c: Value(x.height, "px"),
         'width': lambda x, c: Value(x.width, "px"),
         'x1': lambda x, c: Value(x.x1, "px"),
@@ -1224,8 +1262,9 @@ class Sprite(Expr):
 
     def __init__(self, spritemap, name, lineno=None):
         self.lineno = lineno if lineno else name.lineno
-        self.spritemap = spritemap
         self.name = name
+        self.spritemap = spritemap
+        self.spritemap.annotate_used(self)
         try:
             self.coords = spritemap.get_sprite_def(name)
         except KeyError:
@@ -1242,10 +1281,15 @@ class Sprite(Expr):
     @property
     def height(self): return self.y2 - self.y1
 
+    def _pos_vals(self, context):
+        """Get a list of position values."""
+        meths = self.methods
+        call_names = "x1", "y1", "x2", "y2"
+        return [meths[n](self, context) for n in call_names]
+
     def to_string(self, context):
-        self.spritemap.annotate_used(self)
-        return "url('%s') %dpx %dpx" % (self.spritemap.image_url,
-                                        self.x1, self.y1)
+        sprite_url = self.spritemap.get_sprite_url(self)
+        return "url('%s') %dpx %dpx" % (sprite_url, self.x1, self.y1)
 
 
 class Var(Expr):
