@@ -1292,7 +1292,7 @@ class Sprite(Expr):
 
     def to_string(self, context):
         sprite_url = self.spritemap.get_sprite_url(self)
-        return "url('%s') %dpx %dpx" % (sprite_url, self.x1, self.y1)
+        return "url('%s') -%dpx -%dpx" % (sprite_url, self.x1, self.y1)
 
 
 class Var(Expr):
