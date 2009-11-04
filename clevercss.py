@@ -1144,7 +1144,7 @@ class URL(Literal):
 class SpriteMap(Expr):
     name = 'SpriteMap'
     methods = {
-        'sprite':   lambda x, c, v: Sprite(x, v.value, lineno=v.lineno)
+        'sprite': lambda x, c, v: Sprite(x, v.value, lineno=v.lineno)
     }
     _magic_names = {
         "__url__": "image_url",
@@ -1180,6 +1180,8 @@ class SpriteMap(Expr):
                         raise ValueError("%r is not a valid field" % (key,))
                     att = self._magic_names[key]
                     setattr(self, att, rest[0])
+                elif len(rest) != 4:
+                    raise ValueError("unexpected line: %r" % (line,))
                 else:
                     x1, y1, x2, y2 = rest
                     spritemap[key] = map(int, (x1, y1, x2, y2))
@@ -1268,7 +1270,8 @@ class Sprite(Expr):
         try:
             self.coords = spritemap.get_sprite_def(name)
         except KeyError:
-            raise EvalException(self.lineno, "Couldn't find sprite %r" % name)
+            msg = "Couldn't find sprite %r in mapping" % name
+            raise EvalException(self.lineno, msg)
 
     def _get_coords(self):
         return self.x1, self.y1, self.x2, self.y2
