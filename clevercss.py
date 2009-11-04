@@ -1733,43 +1733,51 @@ def convert(source, context=None, fname=None):
 def main():
     """Entrypoint for the shell."""
     import sys
+    import optparse
 
-    # help!
-    if '--help' in sys.argv:
-        print 'usage: %s <file 1> ... <file n>' % sys.argv[0]
-        print '  if called with some filenames it will read each file, cut of'
-        print '  the extension and append a ".css" extension and save. If '
-        print '  the target file has the same name as the source file it will'
-        print '  abort, but if it overrides a file during this process it will'
-        print '  continue. This is a desired functionality. To avoid that you'
-        print '  must not give your source file a .css extension.'
-        print
-        print '  if you call it without arguments it will read from stdin and'
-        print '  write the converted css to stdout.'
-        print
-        print '  called with the --eigen-test parameter it will evaluate the'
-        print '  example from the module docstring.'
-        print
-        print '  to get a list of known color names call it with --list-colors'
+    if sys.argv[0] is None:
+        sys.argv[0] = "clevercss.py"
+    parser = optparse.OptionParser()
+    parser.add_option("-o", "--out", metavar="FILE", help="Send output to FILE.")
+    parser.add_option("--eigen-test", action="store_true", help="Run eigen test.")
+    parser.add_option("--list-colors", action="store_true", help="List defined colors.")
+    parser.add_option("-V", "--version", action="store_true", help="Print out version info.")
+    parser.set_usage("""usage: %prog <file 1> ... <file n>
+
+If called with some filenames it will read each file, cut of
+the extension and append a ".css" extension and save. If
+the target file has the same name as the source file it will
+abort, but if it overrides a file during this process it will
+continue. This is a desired functionality. To avoid that you
+must not give your source file a .css extension.
+
+If you call it without arguments it will read from stdin and
+write the converted css to stdout.
+
+Called with the --eigen-test parameter it will evaluate the
+example from the module docstring.
+
+To get a list of known color names call it with --list-colors""")
+    opts, args = parser.parse_args()
 
     # version
-    elif '--version' in sys.argv:
+    if opts.version:
         print 'CleverCSS Version %s' % VERSION
         print 'Licensed under the BSD license.'
         print '(c) Copyright 2007 by Armin Ronacher and Georg Brandl.'
 
     # evaluate the example from the docstring.
-    elif '--eigen-test' in sys.argv:
+    elif opts.eigen_test:
         print eigen_test()
 
     # color list
-    elif '--list-colors' in sys.argv:
+    elif opts.list_colors:
         print '%s known colors:' % len(_colors)
         for color in sorted(_colors.items()):
             print '  %-30s%s' % color
 
     # read from stdin and write to stdout
-    elif len(sys.argv) == 1:
+    elif not args:
         try:
             print convert(sys.stdin.read())
         except (ParserError, EvalException), e:
@@ -1778,8 +1786,11 @@ def main():
 
     # convert some files
     else:
-        for fn in sys.argv[1:]:
-            target = fn.rsplit('.', 1)[0] + '.css'
+        for fn in args:
+            if opts.out:
+                target = opts.out
+            else:
+                target = fn.rsplit('.', 1)[0] + '.css'
             if fn == target:
                 sys.stderr.write('Error: same name for source and target file'
                                  ' "%s".' % fn)
@@ -1791,11 +1802,14 @@ def main():
                 except (ParserError, EvalException), e:
                     sys.stderr.write('Error in file %s: %s\n' % (fn, e))
                     sys.exit(1)
-                dst = file(target, 'w')
-                try:
-                    dst.write(converted)
-                finally:
-                    dst.close()
+                if target == "-":
+                    print converted
+                else:
+                    dst = file(target, 'w')
+                    try:
+                        dst.write(converted)
+                    finally:
+                        dst.close()
             finally:
                 src.close()
 
