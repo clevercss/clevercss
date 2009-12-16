@@ -234,7 +234,7 @@ __all__ = ['convert']
 _var_def_re = re.compile(r'^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)')
 _macros_def_re = re.compile(r'^def ([a-zA-Z-]+)\s*:\s*')
 _def_re = re.compile(r'^([a-zA-Z-]+)\s*:\s*(.+)')
-_macros_call_re = re.compile(r'^\$([a-zA-Z-])')
+_macros_call_re = re.compile(r'^\$([a-zA-Z-]+)')
 _line_comment_re = re.compile(r'(?<!:)//.*?$')
 
 # list of operators
@@ -1253,6 +1253,8 @@ class Parser(object):
                 if line.startswith('def ') and line.endswith(":")\
                         and state_stack[-1] == 'root':
                     s_macros = _macros_def_re.search(line).groups()[0]
+                    if s_macros in vars:
+                        fail('name "%s" already bound to variable' % s_macros)
                     new_state = 'macros'
                     macros = []
                     macroses[s_macros] = macros
@@ -1278,6 +1280,8 @@ class Parser(object):
                         key = m.group(1)
                         if key in vars:
                             fail('variable "%s" defined twice' % key)
+                        if key in macroses:
+                            fail('name "%s" already bound to macros' % key)
                         vars[key] = (lineiter.lineno, m.group(2))
                     else:
                         fail('Style definitions or group blocks are only '
@@ -1305,7 +1309,6 @@ class Parser(object):
             # something unparseable happened
             else:
                 fail('unexpected character %s' % line[0])
-
         return root_rules, vars, macroses
 
     def parse(self, source):
@@ -1321,7 +1324,10 @@ class Parser(object):
                     styles = []
                     for lineno, k, v in defs:
                         if k == '__macros_call__':
-                            styles.extend(expand_defs(macroses[v]))
+                            macros_defs = macroses.get(v, None)
+                            if macros_defs is None:
+                                fail('No macros with name "%s" is defined' % v)
+                            styles.extend(expand_defs(macros_defs))
                         else:
                             styles.append(expand_def((lineno, k, v)))
                     result.append((get_selectors(), styles))
