@@ -232,7 +232,9 @@ __all__ = ['convert']
 
 # regular expresssions for the normal parser
 _var_def_re = re.compile(r'^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)')
+_macros_def_re = re.compile(r'^def ([a-zA-Z-]+)\s*:\s*')
 _def_re = re.compile(r'^([a-zA-Z-]+)\s*:\s*(.+)')
+_macros_call_re = re.compile(r'^\$([a-zA-Z-])')
 _line_comment_re = re.compile(r'(?<!:)//.*?$')
 
 # list of operators
@@ -1190,6 +1192,7 @@ class Parser(object):
         group_block_stack = []
         rule_stack = [rule]
         root_rules = rule[1]
+        macroses = {}
         new_state = None
         lineiter = LineIterator(source, emit_endmarker=True)
 
@@ -1198,9 +1201,12 @@ class Parser(object):
 
         def parse_definition():
             m = _def_re.search(line)
-            if m is None:
-                fail('invalid syntax for style definition')
-            return lineiter.lineno, m.group(1), m.group(2)
+            if not m is None:
+                return lineiter.lineno, m.group(1), m.group(2)
+            m = _macros_call_re.search(line)
+            if not m is None:
+                return lineiter.lineno, '__macros_call__', m.groups()[0]
+            fail('invalid syntax for style definition')
 
         for lineno, line in lineiter:
             raw_line = line.rstrip().expandtabs()
@@ -1242,9 +1248,17 @@ class Parser(object):
                 break
 
             # root and rules
-            elif state_stack[-1] in ('rule', 'root'):
+            elif state_stack[-1] in ('rule', 'root', 'macros'):
+                # macros blocks
+                if line.startswith('def ') and line.endswith(":")\
+                        and state_stack[-1] == 'root':
+                    s_macros = _macros_def_re.search(line).groups()[0]
+                    new_state = 'macros'
+                    macros = []
+                    macroses[s_macros] = macros
+
                 # new rule blocks
-                if line.endswith(':'):
+                elif line.endswith(':'):
                     s_rule = line[:-1].rstrip()
                     if not s_rule:
                         fail('empty rule')
@@ -1279,7 +1293,10 @@ class Parser(object):
 
                 # otherwise parse a style definition.
                 else:
-                    rule[2].append(parse_definition())
+                    if state_stack[-1] == 'rule':
+                        rule[2].append(parse_definition())
+                    elif state_stack[-1] == 'macros':
+                        macros.append(parse_definition())
 
             # group blocks
             elif state_stack[-1] == 'group_block':
@@ -1289,22 +1306,27 @@ class Parser(object):
             else:
                 fail('unexpected character %s' % line[0])
 
-        return root_rules, vars
+        return root_rules, vars, macroses
 
     def parse(self, source):
         """
         Create a flat structure and parse inline expressions.
         """
-        def handle_rule(rule, children, defs):
-            def recurse():
-                if defs:
-                    result.append((get_selectors(), [
-                        (k, self.parse_expr(lineno, v)) for
-                        lineno, k, v in defs
-                    ]))
-                for child in children:
-                    handle_rule(*child)
+        expand_def = lambda (lineno, k, v): (k, self.parse_expr(lineno, v))
+        expand_defs = lambda it: map(expand_def, it)
 
+        def handle_rule(rule, children, defs, macroses):
+            def recurse(macroses):
+                if defs:
+                    styles = []
+                    for lineno, k, v in defs:
+                        if k == '__macros_call__':
+                            styles.extend(expand_defs(macroses[v]))
+                        else:
+                            styles.append(expand_def((lineno, k, v)))
+                    result.append((get_selectors(), styles))
+                for i_r, i_c, i_d in children:
+                    handle_rule(i_r, i_c, i_d, macroses)
             local_rules = []
             reference_rules = []
             for r in rule.split(','):
@@ -1316,7 +1338,7 @@ class Parser(object):
 
             if local_rules:
                 stack.append(local_rules)
-                recurse()
+                recurse(macroses)
                 stack.pop()
 
             if reference_rules:
@@ -1331,7 +1353,7 @@ class Parser(object):
                     for tmpl in reference_rules:
                         virtual_rules.append(tmpl.replace('&', parent_rule))
                 stack.append(virtual_rules)
-                recurse()
+                recurse(macroses)
                 stack.pop()
                 if push_back:
                     stack.append(parent_rules)
@@ -1346,12 +1368,11 @@ class Parser(object):
                 branches = new_branches
             return [' '.join(branch) for branch in branches]
 
-        root_rules, vars = self.preparse(source)
+        root_rules, vars, macroses = self.preparse(source)
         result = []
         stack = []
-        for rule in root_rules:
-            handle_rule(*rule)
-
+        for i_r, i_c, i_d in root_rules:
+            handle_rule(i_r, i_c, i_d, macroses)
         real_vars = {}
         for name, args in vars.iteritems():
             real_vars[name] = self.parse_expr(*args)
