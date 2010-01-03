@@ -455,26 +455,8 @@ def hls_to_rgb(hue, saturation, lightness):
     return tuple(int(round(x * 255)) for x in t)
 
 
-class ParserError(Exception):
-    """
-    Raised on syntax errors.
-    """
-
-    def __init__(self, lineno, message):
-        self.lineno = lineno
-        Exception.__init__(self, message)
-
-    def __str__(self):
-        return '%s (line %s)' % (
-            self.message,
-            self.lineno
-        )
-
-
-class EvalException(Exception):
-    """
-    Raised during evaluation.
-    """
+class CleverCssException(Exception):
+    """Base class for exceptions raised by CleverCSS."""
 
     def __init__(self, lineno, message):
         self.lineno = lineno
@@ -486,6 +468,14 @@ class EvalException(Exception):
             self.msg,
             self.lineno
         )
+
+
+class ParserError(CleverCssException):
+    """Raised on syntax errors."""
+
+
+class EvalException(CleverCssException):
+    """Raised during evaluation."""
 
 
 class LineIterator(object):
