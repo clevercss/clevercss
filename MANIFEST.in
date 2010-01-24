@@ -1,0 +1,3 @@
+include README.rst BUGFIXES extract_sprites.py sprites_format.txt
+include setup.py clevercss.py
+recursive-include tests *.py
