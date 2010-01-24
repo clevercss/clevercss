@@ -1,15 +1,9 @@
 import os
-
-f = open("README.rst")
-try:
-    try:
-        readme_text = f.read()
-    except:
-        readme_text = ""
-finally:
-    f.close()
-
 from distutils.core import setup
+
+fp = open(os.path.join(os.path.dirname(__file__), "README.rst"))
+readme_text = fp.read()
+fp.close()
 
 setup(
     name='CleverCSS',
