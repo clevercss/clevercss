@@ -1179,6 +1179,7 @@ class Parser(object):
         state_stack = ['root']
         group_block_stack = []
         rule_stack = [rule]
+        sub_rules = []
         root_rules = rule[1]
         new_state = None
         lineiter = LineIterator(source, emit_endmarker=True)
@@ -1234,8 +1235,12 @@ class Parser(object):
             # root and rules
             elif state_stack[-1] in ('rule', 'root'):
                 # new rule blocks
-                if line.endswith(':'):
-                    s_rule = line[:-1].rstrip()
+                if line.endswith(','):
+                    sub_rules.append(line)
+                elif line.endswith(':'):
+                    sub_rules.append(line[:-1].rstrip())
+                    s_rule = ' '.join(sub_rules)
+                    sub_rules = []
                     if not s_rule:
                         fail('empty rule')
                     new_state = 'rule'

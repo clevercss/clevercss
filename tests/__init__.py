@@ -79,6 +79,7 @@ class ConvertTestCase(TestCase):
             left: 5+5px
             right: 4px-5px
             bottom: 0 - 5px
+            text-shadow: 0px -1px 8px #fff
         """)), dedent("""
         div {
           margin: -2px -2px;
@@ -87,6 +88,7 @@ class ConvertTestCase(TestCase):
           left: 10px;
           right: -1px;
           bottom: -5px;
+          text-shadow: 0px -1px 8px #ffffff;
         }""").strip())
 
     def test_eigen(self):
@@ -140,7 +142,20 @@ class ConvertTestCase(TestCase):
           height: 1em;
           padding: 0.1em;
         }
-        """).strip())        
+        """).strip())
+
+    def test_multiline_rule(self):
+        self.assertEqual(convert(dedent("""
+        ul.item1 li.item1,
+        ul.item2 li.item2,
+        ul.item3 li.item3:
+            font-weight: bold
+        """)), dedent("""
+        ul.item1 li.item1,
+        ul.item2 li.item2,
+        ul.item3 li.item3 {
+          font-weight: bold;
+        }""").strip())
 
 
 from clevercss import LineIterator
