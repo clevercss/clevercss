@@ -223,9 +223,10 @@
 import re
 import colorsys
 import operator
+import os.path
 
 
-VERSION = '0.1.5'
+VERSION = '0.1.6'
 
 __all__ = ['convert']
 
@@ -423,6 +424,7 @@ _value_re = re.compile(r'(%s)(%s)(?![a-zA-Z0-9_])' % (_r_number, '|'.join(_units
 _color_re = re.compile(r'#' + ('[a-fA-f0-9]{1,2}' * 3))
 _string_re = re.compile('%s|([^\s*/();,.+$]+|\.(?!%s))+' % (_r_string, _r_call))
 _url_re = re.compile(r'url\(\s*(%s|.*?)\s*\)' % _r_string)
+_import_re = re.compile(r'\@import\s+url\(\s*"?(%s|.*?)"?\s*\)' % _r_string)
 _var_re = re.compile(r'(?<!\\)\$(?:([a-zA-Z_][a-zA-Z0-9_]*)|'
                      r'\{([a-zA-Z_][a-zA-Z0-9_]*)\})')
 _call_re = re.compile(r'\.' + _r_call)
@@ -576,17 +578,24 @@ class Engine(object):
         if parser is None:
             parser = Parser(fname=fname)
         self._parser = parser
-        self.rules, self._vars = parser.parse(source)
+        self.rules, self._vars, self._imports = parser.parse(source)
 
     def evaluate(self, context=None):
         """Evaluate code."""
         expr = None
         if not isinstance(context, dict):
             context = {}
+
         for key, value in context.iteritems():
+          if isinstance(value, str):
             expr = self._parser.parse_expr(1, value)
             context[key] = expr
         context.update(self._vars)
+
+        # pull in imports
+        for fname, source in self._imports.iteritems():
+          for selectors, defs in Engine(source[1], fname=fname).evaluate(context):
+            yield selectors, defs
 
         for selectors, defs in self.rules:
             yield selectors, [(key, expr.to_string(context))
@@ -1175,6 +1184,7 @@ class Parser(object):
         """
         rule = (None, [], [])
         vars = {}
+        imports = {}
         indention_stack = [0]
         state_stack = ['root']
         group_block_stack = []
@@ -1237,6 +1247,7 @@ class Parser(object):
                 # new rule blocks
                 if line.endswith(','):
                     sub_rules.append(line)
+                                
                 elif line.endswith(':'):
                     sub_rules.append(line[:-1].rstrip())
                     s_rule = ' '.join(sub_rules)
@@ -1260,6 +1271,17 @@ class Parser(object):
                         if key in vars:
                             fail('variable "%s" defined twice' % key)
                         vars[key] = (lineiter.lineno, m.group(2))
+                    elif line.startswith("@"):
+                      m = _import_re.search(line)
+                      if m is None:
+                        fail('invalid import syntax')
+                      url = m.group(1)
+                      if url in imports:
+                          fail('file "%s" imported twice' % url)
+                      if not os.path.isfile(url):
+                        fail('file "%s" was not found' % url)
+                      imports[url] = (lineiter.lineno, open(url).read())
+                      
                     else:
                         fail('Style definitions or group blocks are only '
                              'allowed inside a rule or group block.')
@@ -1284,7 +1306,7 @@ class Parser(object):
             else:
                 fail('unexpected character %s' % line[0])
 
-        return root_rules, vars
+        return root_rules, vars, imports
 
     def parse(self, source):
         """
@@ -1341,7 +1363,7 @@ class Parser(object):
                 branches = new_branches
             return [' '.join(branch) for branch in branches]
 
-        root_rules, vars = self.preparse(source)
+        root_rules, vars, imports = self.preparse(source)
         result = []
         stack = []
         for rule in root_rules:
@@ -1351,7 +1373,7 @@ class Parser(object):
         for name, args in vars.iteritems():
             real_vars[name] = self.parse_expr(*args)
 
-        return result, real_vars
+        return result, real_vars, imports
 
     def parse_expr(self, lineno, s):
         def parse():
@@ -1383,6 +1405,7 @@ class Parser(object):
                      (_color_re, process('color')),
                      (_number_re, process('number')),
                      (_url_re, process('url', 1)),
+                     (_import_re, process('import', 1)),
                      (_string_re, process_string),
                      (_var_re, lambda m: (m.group(1) or m.group(2), 'var')),
                      (_whitespace_re, None))
@@ -1496,6 +1519,9 @@ class Parser(object):
         elif token == 'url':
             stream.next()
             node = URL(value, lineno=stream.lineno)
+        elif token == 'import':
+            stream.next()
+            node = Import(value, lineno=stream.lineno)
         elif token == 'var':
             stream.next()
             node = Var(value, lineno=stream.lineno)

@@ -144,6 +144,35 @@ class ConvertTestCase(TestCase):
         }
         """).strip())
 
+    def test_import_line(self):
+      """
+      Tests the @import url() command. assumes the code is running in the main
+      directory. (i.e. python -c 'from tests import *; main()' from the same
+      dir as clevercss)
+      """
+      self.assertEqual(convert(dedent("""
+      @import url(tests/example.ccss)
+      
+      div:
+          color: $arg
+      """)), dedent("""
+      #test1 {
+        color: blue;
+      }
+
+      #test2 {
+        color: blue;
+      }
+
+      #test3 {
+        color: blue;
+      }
+      
+      div {
+        color: blue;
+      }""").strip())
+      
+
     def test_multiline_rule(self):
         self.assertEqual(convert(dedent("""
         ul.item1 li.item1,
