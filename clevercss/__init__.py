@@ -229,7 +229,7 @@ import engine
 VERSION = '0.2'
 
 def convert(source, context=None):
-    """Convert a CleverCSS file into a normal stylesheet."""
+    """Convert CleverCSS text into normal CSS."""
     return engine.Engine(source).to_css(context)
 
 __all__ = ['convert']
