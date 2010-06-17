@@ -9,6 +9,7 @@ import utils
 import errors
 import expressions
 import line_iterator
+from errors import *
 
 class Engine(object):
     """
