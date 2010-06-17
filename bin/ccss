@@ -2,8 +2,10 @@
 
 from optparse import OptionParser
 import re
+import sys
 
 import clevercss
+from clevercss.errors import *
 
 help_text = '''
 usage: %prog <file 1> ... <file n>
@@ -32,16 +34,59 @@ def main():
             help='list all known coor names')
     parser.add_option('-n', '--no-overwrite', action='store_true', dest='no_overwrite',
             help='don\'t overwrite any files (default=false)')
+    parser.add_option('--to-ccss', action='store_true',
+            help='convert css files to ccss')
 
     (options, args) = parser.parse_args()
     if options.eigen_test:
         do_test()
     elif options.list_colors:
         list_colors()
+    elif options.to_ccss:
+        for arg in args:
+            print cleverfy(arg)
     elif len(args):
         convert_many(args, options)
     else:
         convert_stream()
+
+import cssutils
+import logging
+cssutils.log.setLevel(logging.FATAL)
+
+def parseCSS(text):
+    parser = cssutils.CSSParser()
+    css = parser.parseString(text)
+    rules = {}
+    for rule in css.cssRules:
+        commas = rule.selectorText.split(',')
+        for comma in commas:
+            parts = comma.split()
+            c = rules
+            for i, part in enumerate(parts):
+                if part in '>+':
+                    parts[i+1] = '&' + part + parts[i+1]
+                    continue
+                c = c.setdefault(part, {})
+            c.setdefault(':rules:', []).append(rule)
+    return rules
+
+def rulesToCCSS(selector, rules):
+    text = selector + ':\n  '
+    if rules.get(':rules:'):
+        text += '\n\n  '.join('\n  '.join(line.strip().rstrip(';') for line in rule.style.cssText.splitlines()) for rule in rules.get(':rules:', [])) + '\n'
+    for other in rules:
+        if other == ':rules:':
+            continue
+        text += '\n  ' + rulesToCCSS(other, rules[other]).replace('\n', '\n  ')
+    return text
+
+def cleverfy(fname):
+    rules = parseCSS(open(fname).read())
+    text = ''
+    for rule in rules:
+        text += rulesToCCSS(rule, rules[rule]) + '\n\n'
+    return text
 
 def do_test():
     rx = re.compile(r'Example::\n(.*?)__END__(?ms)')
@@ -76,7 +121,7 @@ def convert_many(files, options):
         src = open(fname)
         try:
             try:
-                converted = convert(src.read())
+                converted = clevercss.convert(src.read())
             except (ParserError, EvalException), e:
                 sys.stderr.write('Error in file %s: %s\n' % (fname, e))
                 sys.exit(1)
