@@ -17,6 +17,12 @@ class ConvertTestCase(TestCase):
         ''', {'background_color': 'red.darken(10)'}),
         u'body {\n  background-color: #cc0000;\n}')
 
+    def convert_rgba(self):
+        self._test_attr('background-color','rgba(0, 255, 100%, 0.3)', 'rgba(0, 255, 255, 0.3)')
+
+    def _test_attr(self, attr, ccval, cssval):
+        self.assertEqual(convert('body:\n  %s: %s\n' % (attr, ccval)), 'body {\n  %s: %s;\n}' % (attr, cssval))
+
 def all_tests():
     return unittest.TestSuite(case.toSuite() for case in [ConvertTestCase])
 

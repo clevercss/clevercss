@@ -272,6 +272,8 @@ class Parser(object):
                                            .encode('utf-8')
                     elif value == 'rgb':
                         return None, 'rgb'
+                    elif value == 'rgba':
+                        return None, 'rgba'
                     elif value in consts.COLORS:
                         return value, 'color'
                 except UnicodeError:
@@ -391,6 +393,17 @@ class Parser(object):
                 return expressions.RGB(tuple(args), lineno=stream.lineno)
             else:
                 node = expressions.String('rgb')
+        elif token == 'rgba':
+            stream.next()
+            if stream.current == ('(', 'op'):
+                stream.next()
+                args = []
+                while len(args) < 4:
+                    if args:
+                        stream.expect(',', 'op')
+                    args.append(self.expr(stream, True))
+                stream.expect(')', 'op')
+                return expressions.RGBA(args)
         elif token == 'string':
             stream.next()
             node = expressions.String(value, lineno=stream.lineno)

@@ -3,6 +3,7 @@
 import utils
 import operator
 import consts
+from errors import *
 
 class Expr(object):
     """
@@ -392,6 +393,35 @@ class RGB(Expr):
                                 'the range 0 to 255.')
             args.append(value)
         return Color(args, lineno=self.lineno)
+
+class RGBA(RGB):
+    """
+    an expression for dealing w/ rgba colors
+    """
+
+    def to_string(self, context):
+        args = []
+        for i, arg in enumerate(self.rgb):
+            arg = arg.evaluate(context)
+            if isinstance(arg, Number):
+                if i == 3:
+                    value = float(arg.value)
+                else:
+                    value = int(arg.value)
+            elif isinstance(arg, Value) and arg.unit == '%':
+                if i == 3:
+                    value = float(arg.value / 100.0)
+                else:
+                    value = int(arg.value / 100.0 * 255)
+            else:
+                raise EvalException(self.lineno, 'colors defined using the '
+                                    'rgb() literal only accept numbers and '
+                                    'percentages. (got %s)' % arg)
+            if value < 0 or value > 255:
+                raise EvalError(self.lineno, 'rgb components must be in '
+                                'the range 0 to 255.')
+            args.append(value)
+        return 'rgba(%s)' % (', '.join(str(n) for n in args))
 
 class String(Literal):
     name = 'string'
