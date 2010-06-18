@@ -174,7 +174,7 @@ COLORS = {
 REV_COLORS = dict((v, k) for k, v in COLORS.iteritems())
 
 # partial regular expressions for the expr parser
-r_number = '\d+(?:\.\d+)?'
+r_number = '\d*(?:\.\d+)?'
 r_string = r"(?:'(?:[^'\\]*(?:\\.[^'\\]*)*)'|" \
           r'\"(?:[^"\\]*(?:\\.[^"\\]*)*)")'
 r_call = r'([a-zA-Z_][a-zA-Z0-9_]*)\('

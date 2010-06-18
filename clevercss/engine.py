@@ -293,7 +293,7 @@ class Parser(object):
             while pos < end:
                 for rule, processor in rules:
                     m = rule.match(s, pos)
-                    if m is not None:
+                    if m is not None and m.group():
                         if processor is not None:
                             yield processor(m)
                         pos = m.end()

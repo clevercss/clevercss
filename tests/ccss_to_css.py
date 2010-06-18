@@ -20,6 +20,12 @@ class ConvertTestCase(TestCase):
     def convert_rgba(self):
         self._test_attr('background-color','rgba(0, 255, 100%, 0.3)', 'rgba(0, 255, 255, 0.3)')
 
+    def convert_rgba_float(self):
+        self._test_attr('background-color','rgba(0, 255, 100%, .3)', 'rgba(0, 255, 255, 0.3)')
+
+    def convert_float(self):
+        self._test_attr('top','.3', '0.3')
+
     def _test_attr(self, attr, ccval, cssval):
         self.assertEqual(convert('body:\n  %s: %s\n' % (attr, ccval)), 'body {\n  %s: %s;\n}' % (attr, cssval))
 
