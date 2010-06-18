@@ -184,6 +184,7 @@ regex = {
     'var_def': re.compile(r'^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)'),
     'def': re.compile(r'^([a-zA-Z-]+)\s*:\s*(.+)'),
     'line_comment': re.compile(r'(?<!:)//.*?$'),
+    'multi_comment': re.compile(r'/\*.+?\*/', re.S),
     # regular expressions for the expr parser
     'operator': re.compile('|'.join(re.escape(x) for x in OPERATORS)),
     'whitespace': re.compile(r'\s+'),

@@ -29,7 +29,7 @@ class LineIterator(object):
         If `emit_endmarkers` is set to `True` the line iterator will send
         the string ``'__END__'`` before closing down.
         """
-        lines = source.splitlines()
+        lines = consts.regex['multi_comment'].sub('', source).splitlines()
         self.lineno = 0
         self.lines = len(lines)
         self.emit_endmarker = emit_endmarker
