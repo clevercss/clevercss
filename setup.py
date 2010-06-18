@@ -91,5 +91,6 @@ setup(
             'clevercss = clevercss:main'
         ]
     },
+    test_suite = 'tests.all_tests',
     
 )
