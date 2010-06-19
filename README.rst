@@ -14,16 +14,18 @@ good idea for structural styles.
 New Syntax Additions
 ====================
 
-Imports__
+Imports
 ----------
+`(commit)`__
 
 __ http://github.com/jabapyth/clevercss/commit/04536763f98bf5285194595a39e21c41d7c63b1a
 
 This works like normal css @imports, but expects a ccss file, which is then
 parsed, allowing cross-sheet variables
 
-`Backstrings -- literal CSS`__
+Backstrings (literal CSS)
 -------------------------------
+`(commit)`__
 
 __ http://github.com/WorldMaker/clevercss/commit/66b86c61454daae57a504185df359437c4883ae8
 
@@ -39,7 +41,7 @@ further processing. Example::
 Spritemaps
 ------------
 `(commit)`__
-__:: http://github.com/jabapyth/clevercss/commit/f5a98c9b29d57b6543cc2cc87728061148c13588
+__ http://github.com/jabapyth/clevercss/commit/f5a98c9b29d57b6543cc2cc87728061148c13588
 
 Commonly in CSS, you'll have an image of all your UI elements, and then use
 background positioning to extract a part of that image. CleverCSS helps you
