@@ -448,6 +448,7 @@ _whitespace_re = re.compile(r'\s+')
 _number_re = re.compile(_r_number + '(?![a-zA-Z0-9_])')
 _value_re = re.compile(r'(%s)(%s)(?![a-zA-Z0-9_])' % (_r_number, '|'.join(_units)))
 _color_re = re.compile(r'#' + ('[a-fA-f0-9]{1,2}' * 3))
+_backstring_re = re.compile(r'`([^`]*)`')
 _string_re = re.compile('%s|([^\s*/();,.+$]+|\.(?!%s))+' % (_r_string, _r_call))
 _url_re = re.compile(r'url\(\s*(%s|.*?)\s*\)' % _r_string)
 _import_re = re.compile(r'\@import\s+url\(\s*"?(%s|.*?)"?\s*\)' % _r_string)
@@ -1115,6 +1116,20 @@ class RGB(Expr):
         return Color(args, lineno=self.lineno)
 
 
+class Backstring(Literal):
+    """
+    A string meant to be escaped directly to output.
+    """
+    name = "backstring"
+
+    def __init__(self, nodes, lineno=None):
+        Expr.__init__(self, lineno)
+        self.nodes = nodes
+
+    def to_string(self, context):
+        return unicode(self.nodes)
+
+
 class String(Literal):
     name = 'string'
 
@@ -1600,6 +1615,7 @@ class Parser(object):
                      (_url_re, process('url', 1)),
                      (_import_re, process('import', 1)),
                      (_spritemap_re, process('spritemap', 1)),
+                     (_backstring_re, process('backstring', 1)),
                      (_string_re, process_string),
                      (_var_re, lambda m: (m.group(1) or m.group(2), 'var')),
                      (_whitespace_re, None))
@@ -1707,6 +1723,9 @@ class Parser(object):
                 return RGB(tuple(args), lineno=stream.lineno)
             else:
                 node = String('rgb')
+        elif token == 'backstring':
+            stream.next()
+            node = Backstring(value, lineno=stream.lineno)
         elif token == 'string':
             stream.next()
             node = String(value, lineno=stream.lineno)

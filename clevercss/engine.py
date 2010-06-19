@@ -329,6 +329,7 @@ class Parser(object):
                      (consts.regex['url'], process('url', 1)),
                      (consts.regex['import'], process('import', 1)),
                      (consts.regex['spritemap'], process('spritemap', 1)),
+                     (consts.regex['backstring'], process('backstring', 1)),
                      (consts.regex['string'], process_string),
                      (consts.regex['var'], lambda m: (m.group(1) or m.group(2), 'var')),
                      (consts.regex['whitespace'], None))
@@ -447,6 +448,9 @@ class Parser(object):
                     args.append(self.expr(stream, True))
                 stream.expect(')', 'op')
                 return expressions.RGBA(args)
+        elif token == 'backstring':
+            stream.next()
+            node = expressions.Backstring(value, lineno=stream.lineno)
         elif token == 'string':
             stream.next()
             node = expressions.String(value, lineno=stream.lineno)

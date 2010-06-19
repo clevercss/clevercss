@@ -195,6 +195,7 @@ regex = {
     'url': re.compile(r'url\(\s*(%s|.*?)\s*\)' % r_string),
     'import': re.compile(r'\@import\s+url\(\s*"?(%s|.*?)"?\s*\)' % r_string),
     'spritemap': re.compile(r'spritemap\(\s*(%s|.*?)\s*\)' % r_string),
+    'backstring': re.compile(r'`([^`]*)`'),
     'var': re.compile(r'(?<!\\)\$(?:([a-zA-Z_][a-zA-Z0-9_]*)|'
                     r'\{([a-zA-Z_][a-zA-Z0-9_]*)\})'),
     'call': re.compile(r'\.' + r_call)

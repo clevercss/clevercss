@@ -427,6 +427,19 @@ class RGBA(RGB):
             args.append(value)
         return 'rgba(%s)' % (', '.join(str(n) for n in args))
 
+class Backstring(Literal):
+    """
+    A string meant to be escaped directly to output.
+    """
+    name = "backstring"
+
+    def __init__(self, nodes, lineno=None):
+        Expr.__init__(self, lineno)
+        self.nodes = nodes
+
+    def to_string(self, context):
+        return unicode(self.nodes)
+
 class String(Literal):
     name = 'string'
 

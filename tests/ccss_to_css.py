@@ -157,6 +157,16 @@ class ConvertTestCase(TestCase):
           font-weight: bold;
         }""").strip())
 
+    def backstring(self):
+        self.assertEqual(convert(dedent('''
+        div.round:
+            background-image: `-webkit-gradient(top left, bottom right, from(#fff), to(#000))`
+        ''')), dedent('''\
+        div.round {
+          background-image: -webkit-gradient(top left, bottom right, from(#fff), to(#000));
+        }'''))
+
+
 class LineIterTestCase(TestCase):
     def test_comments(self):
         line_iter = LineIterator(dedent(
