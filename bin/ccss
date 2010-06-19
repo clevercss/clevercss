@@ -36,6 +36,8 @@ def main():
             help='don\'t overwrite any files (default=false)')
     parser.add_option('--to-ccss', action='store_true',
             help='convert css files to ccss')
+    parser.add_option('--minified', action='store_true',
+            help='minify the resulting css')
 
     (options, args) = parser.parse_args()
     if options.eigen_test:

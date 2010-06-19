@@ -47,6 +47,8 @@ class Engine(object):
 
     def to_css(self, context=None):
         """Evaluate the code and generate a CSS file."""
+        if context.minified:
+            return self.to_css_min(context)
         blocks = []
         for selectors, defs in self.evaluate(context):
             block = []
@@ -56,6 +58,13 @@ class Engine(object):
             block.append('}')
             blocks.append(u'\n'.join(block))
         return u'\n\n'.join(blocks)
+
+    def to_css_min(self, context=None):
+        """Evaluate the code and generate a CSS file."""
+        return u''.join(u'%s{%s}' % (
+                u','.join(s),
+                u';'.join(u'%s:%s' % kv for kv in d))
+            for s, d in self.evaluate(context))
 
 class TokenStream(object):
     """

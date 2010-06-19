@@ -228,8 +228,16 @@ import engine
 
 VERSION = '0.2'
 
-def convert(source, context=None):
+class Context(dict):
+    def __init__(self, *args, **kwargs):
+        if args == (None,):
+            args = ()
+        super(Context, self).__init__(*args, **kwargs)
+
+def convert(source, context=None, minified=False):
     """Convert CleverCSS text into normal CSS."""
+    context = Context(context)
+    context.minified = minified
     return engine.Engine(source).to_css(context)
 
 __all__ = ['convert']

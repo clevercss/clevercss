@@ -348,6 +348,8 @@ class Color(Literal):
         return Literal.div(self, other, context)
 
     def to_string(self, context):
+        if context.minified and all(x >> 4 == x & 15 for x in self.value):
+            return '#%x%x%x' % tuple(x & 15 for x in self.value)
         code = '#%02x%02x%02x' % self.value
         return self.from_name and consts.REV_COLORS.get(code) or code
 

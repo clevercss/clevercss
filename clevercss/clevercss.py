@@ -220,10 +220,12 @@
     :copyright: Copyright 2007 by Armin Ronacher, Georg Brandl.
     :license: BSD License
 """
-import re
 import colorsys
 import operator
-import os.path
+import optparse
+import os
+import re
+import sys
 
 
 VERSION = '0.1.6'
@@ -603,6 +605,8 @@ class Engine(object):
 
     def to_css(self, context=None):
         """Evaluate the code and generate a CSS file."""
+        if context.minified:
+            return self.to_css_min(context)
         blocks = []
         for selectors, defs in self.evaluate(context):
             block = []
@@ -612,6 +616,13 @@ class Engine(object):
             block.append('}')
             blocks.append(u'\n'.join(block))
         return u'\n\n'.join(blocks)
+
+    def to_css_min(self, context=None):
+        """Evaluate the code and generate a CSS file."""
+        return u''.join(u'%s{%s}' % (
+                u','.join(s),
+                u';'.join(u'%s:%s' % kv for kv in d))
+            for s, d in self.evaluate(context))
 
 
 class TokenStream(object):
@@ -1030,6 +1041,8 @@ class Color(Literal):
         return Literal.div(self, other, context)
 
     def to_string(self, context):
+        if context.minified and all(x >> 4 == x & 15 for x in self.value):
+            return '#%x%x%x' % tuple(x & 15 for x in self.value)
         code = '#%02x%02x%02x' % self.value
         return self.from_name and _reverse_colors.get(code) or code
 
@@ -1561,61 +1574,83 @@ def eigen_test():
                       re.compile(r'Example::\n(.*?)__END__(?ms)')
                         .search(__doc__).group(1).splitlines()))
 
-def convert(source, context=None, fname=None):
+class Context(dict):
+    def __init__(self, *args, **kwargs):
+        if args == (None,):
+            args = ()
+        super(Context, self).__init__(*args, **kwargs)
+
+def convert(source, context=None, minified=False):
     """Convert a CleverCSS file into a normal stylesheet."""
-    return Engine(source, fname=fname).to_css(context)
+    context = Context(context)
+    context.minified = minified
+    return Engine(source).to_css(context)
 
 
 def main():
     """Entrypoint for the shell."""
-    import sys
+    parser = optparse.OptionParser()
 
-    # help!
-    if '--help' in sys.argv:
-        print 'usage: %s <file 1> ... <file n>' % sys.argv[0]
-        print '  if called with some filenames it will read each file, cut of'
-        print '  the extension and append a ".css" extension and save. If '
-        print '  the target file has the same name as the source file it will'
-        print '  abort, but if it overrides a file during this process it will'
-        print '  continue. This is a desired functionality. To avoid that you'
-        print '  must not give your source file a .css extension.'
-        print
-        print '  if you call it without arguments it will read from stdin and'
-        print '  write the converted css to stdout.'
-        print
-        print '  called with the --eigen-test parameter it will evaluate the'
-        print '  example from the module docstring.'
-        print
-        print '  to get a list of known color names call it with --list-colors'
+    parser.usage = """%s <file 1> ... <file n>
+    if called with some filenames it will read each file, cut off the extension
+    and append a ".css" extension and save. If the target target file has the
+    same name as the source file it will abort, but if it overrides a file
+    during this process it will continue. This is a desired functionality. To
+    avoid that you must not give your source file a .css extension.
+
+    if you call it without arguments it will read from stdin and write the
+    converted css to stdout.""" % os.path.basename(sys.argv[0])
+
+    parser.add_option('--version', action='store_true',
+            help="print version info")
+    parser.add_option('--eigen-test', action='store_true',
+            help="evaluate the example from the module docstring")
+    parser.add_option('--list-colors', action='store_true',
+            help="get a list of known color names")
+    parser.add_option('--minified', action='store_true',
+            help="output css with no unnecessary whitespace")
+    parser.add_option('--out-dir', type="string",
+            help="place the output files in this directory")
+
+    options, args = parser.parse_args()
 
     # version
-    elif '--version' in sys.argv:
+    if options.version:
         print 'CleverCSS Version %s' % VERSION
         print 'Licensed under the BSD license.'
         print '(c) Copyright 2007 by Armin Ronacher and Georg Brandl.'
+        return
 
     # evaluate the example from the docstring.
-    elif '--eigen-test' in sys.argv:
-        print eigen_test()
+    if options.eigen_test:
+        print convert('\n'.join(l[8:].rstrip() for l in
+                      re.compile(r'Example::\n(.*?)__END__(?ms)')
+                        .search(__doc__).group(1).splitlines()),
+                      minified=options.minified)
+        return
 
     # color list
-    elif '--list-colors' in sys.argv:
+    if options.list_colors:
         print '%s known colors:' % len(_colors)
         for color in sorted(_colors.items()):
             print '  %-30s%s' % color
+        return
 
     # read from stdin and write to stdout
-    elif len(sys.argv) == 1:
+    if not args:
         try:
-            print convert(sys.stdin.read())
+            print convert(sys.stdin.read(), minified=options.minified)
         except (ParserError, EvalException), e:
             sys.stderr.write('Error: %s\n' % e)
             sys.exit(1)
 
     # convert some files
     else:
-        for fn in sys.argv[1:]:
+        for fn in args:
+            fn = os.path.join(os.getcwd(), fn)
             target = fn.rsplit('.', 1)[0] + '.css'
+            if options.out_dir:
+                target = os.path.join(os.getcwd(), options.out_dir, os.path.basename(target))
             if fn == target:
                 sys.stderr.write('Error: same name for source and target file'
                                  ' "%s".' % fn)
@@ -1623,10 +1658,11 @@ def main():
             src = file(fn)
             try:
                 try:
-                    converted = convert(src.read(), fname=fn)
+                    converted = convert(src.read(), minified=options.minified)
                 except (ParserError, EvalException), e:
                     sys.stderr.write('Error in file %s: %s\n' % (fn, e))
                     sys.exit(1)
+                print "Writing output to %s..." % target
                 dst = file(target, 'w')
                 try:
                     dst.write(converted)
