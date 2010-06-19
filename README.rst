@@ -17,7 +17,7 @@ New Syntax Additions
 Imports__
 ----------
 
-__:: http://github.com/jabapyth/clevercss/commit/04536763f98bf5285194595a39e21c41d7c63b1a
+__ http://github.com/jabapyth/clevercss/commit/04536763f98bf5285194595a39e21c41d7c63b1a
 
 This works like normal css @imports, but expects a ccss file, which is then
 parsed, allowing cross-sheet variables
@@ -25,7 +25,7 @@ parsed, allowing cross-sheet variables
 `Backstrings -- literal CSS`__
 -------------------------------
 
-__:: http://github.com/WorldMaker/clevercss/commit/66b86c61454daae57a504185df359437c4883ae8
+__ http://github.com/WorldMaker/clevercss/commit/66b86c61454daae57a504185df359437c4883ae8
 
 Sometimes CleverCSS is a bit too clever for its own good and you just
 want to pass something directly to CSS. For instance, functions that
@@ -36,9 +36,9 @@ further processing. Example::
   .gradient:
       background: `-moz-linear-gradient(...)`
 
-Spritemaps__
+Spritemaps
 ------------
-
+`(commit)`__
 __:: http://github.com/jabapyth/clevercss/commit/f5a98c9b29d57b6543cc2cc87728061148c13588
 
 Commonly in CSS, you'll have an image of all your UI elements, and then use
