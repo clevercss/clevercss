@@ -389,7 +389,7 @@ class RGB(Expr):
                                     'rgb() literal only accept numbers and '
                                     'percentages.')
             if value < 0 or value > 255:
-                raise EvalError(self.lineno, 'rgb components must be in '
+                raise EvalException(self.lineno, 'rgb components must be in '
                                 'the range 0 to 255.')
             args.append(value)
         return Color(args, lineno=self.lineno)

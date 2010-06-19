@@ -1,5 +1,10 @@
 List of bug fixes since CleverCSS-0.1
 ===================================
+5/27/10 - v.0.1.6 - submitted by Elliot Kroo - added support for @import statements.  Syntax is similar to css, but expects a clever css file -- namely, they must be defined at the top of the file, and will be parsed as a clevercss file.
+
+9/18/09 - v.0.1.5 - submitted by Tim Babych - The Parser was not aware of negative numbers. Thus any minus sign was an operator, leading to unneeded calculations. Say, "margin: -2px -2px" was converted into "margin: -4px"
+ 
+9/18/09 - v.0.1.5 - submitted by Tim Babych - LineIterator was not filtering out "\n"s that were left after trimming /* comments */, causing an exception in Parser
 
 9/01/09 - v.0.1.4 - submitted by David Niergarth and 'Lasse' - Missing None check in Engine.evaluate which causes context to always be reset to {}.
 

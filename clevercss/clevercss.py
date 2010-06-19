@@ -1,4 +1,225 @@
 # -*- coding: utf-8 -*-
+"""
+    CleverCSS
+    ~~~~~~~~~
+
+    The Pythonic way of CSS files.
+
+    To convert this into a normal css file just call the `convert`
+    function in the clevercss module. It's that easy :-)
+
+    Example::
+
+        base_padding = 2px
+        background_color = #eee
+        text_color = #111
+        link_color = #ff0000
+
+        body:
+            font-family: serif, sans-serif, 'Verdana', 'Times New Roman'
+            color: $text_color
+            padding->
+                top: $base_padding + 2
+                right: $base_padding + 3
+                left: $base_padding + 3
+                bottom: $base_padding + 2
+            background-color: $background_color
+
+        div.foo:
+            width: "Hello World".length() * 20px
+            foo: (foo, bar, baz, 42).join('/')
+
+        a:
+            color: $link_color
+            &:hover:
+                color: $link_color.darken(30%)
+            &:active:
+                color: $link_color.brighten(10%)
+
+        div.navigation:
+            height: 1.2em
+            padding: 0.2em
+            ul:
+                margin: 0
+                padding: 0
+                list-style: none
+                li:
+                    float: left
+                    height: 1.2em
+                    a:
+                        display: block
+                        height: 1em
+                        padding: 0.1em
+            foo: (1 2 3).string()
+
+        __END__
+        this is ignored, but __END__ as such is completely optional.
+
+    To get the converted example module as css just run this file as script
+    with the "--eigen-test" parameter.
+
+    Literals
+    --------
+
+    CleverCSS supports most of the standard CSS literals.  Some syntax
+    elements are not supported by now, some will probably never.
+
+    Strings:
+        everything (except of dangling method calls and whitespace) that
+        cannot be parsed with a different rule is considered being a
+        string.  If you want to have whitespace in your strings or use
+        something as string that would otherwise have a different semantic
+        you can use double or single quotes.
+
+        these are all valid strings::
+
+            =
+            foo-bar-baz
+            "blub"
+            'foo bar baz'
+            Verdana
+
+    Numbers
+        Numbers are just that.  Numbers with unit postfix are values.
+
+    Values
+        Values are numbers with an associated unit.  Most obvious difference
+        between those two are the different semantics in arithmetic
+        operations.  Some units can be converted, some are just not compatible
+        (for example you won't be able to convert 1em in percent because
+         there is no fixed conversion possible)
+        Additionally to the CSS supported colors this module supports the
+        netscape color codes.
+
+    Colors
+        Colors are so far only supported in hexadecimal notation.  You can
+        also use the `rgb()` literal to some amount.  But that means you
+        cannot use "orange" as color.
+
+    URLs:
+        URLs work like strings, the only difference is that the syntax looks
+        like ``url(...)``.
+
+    Variables:
+        variables are quite simple.  Once they are defined in the root section
+        you can use them in every expression::
+
+            foo = 42px
+
+            div:
+                width: $foo * 100;
+
+    Lists:
+        Sometimes you want to assign more than one element to a CSS rule.  For
+        example if you work with font families.  In that situation just use
+        the comma operator to define a list::
+
+            font-family: Verdana, Arial, sans-serif
+
+        Additionally lists have methods, you can for example do this (although
+        probably completely useless in real world cases)::
+
+            width: (1, 2, 3, 4).length() * 20
+
+
+    Implicit Concatenation
+    ----------------------
+
+    CleverCSS ignores whitespace.  But whitespace keeps the tokens apart.  If
+    the parser now stumbles upon something it doesn't know how to handle, it
+    assumes that there was a whitespace.  In some situations CSS even requires
+    that behavior::
+
+        padding: 2px 3px
+
+    But because CleverCSS has expressions this could lead to this situation::
+
+        padding: $x + 1 $x + 2
+
+    This if course works too because ``$x + 1`` is one expression and
+    ``$x + 2`` another one.  This however can lead to code that is harder to
+    read.  In that situation it's recommended to parentize the expressions::
+
+        padding: ($x + 1) ($x + 2)
+
+    or remove the whitespace between the operators::
+
+        padding: $x+1 $x+2
+
+
+    Operators
+    ---------
+
+    ``+``       add two numbers, a number and a value or two compatible
+                values (for example ``1cm + 12mm``).  This also works as
+                concatenate operator for strings.  Using this operator
+                on color objects allows some basic color composition.
+    ``-``       subtract one number from another, a number from a value
+                or a value from a compatible one.  Like the plus operator
+                this also works on colors.
+    ``*``       Multiply numbers, numbers with a value.  Multiplying strings
+                repeats it. (eg: ``= * 5`` gives '=====')
+    ``/``       divide one number or value by a number.
+    ``%``       do a modulo division on a number or value by a number.
+
+    Keep in mind that whitespace matters. For example ``20% 10`` is something
+    completely different than ``20 % 10``. The first one is an implicit
+    concatenation expression with the values 20% and 10, the second one a
+    modulo epression.  The same applies to ``no-wrap`` versus ``no - wrap``
+    and others.
+
+    Additionally there are two operators used to keep list items apart. The
+    comma (``,``) and semicolon (``;``) operator both keep list items apart.
+
+    If you want to group expressions you can use parentheses.
+
+    Methods
+    -------
+
+    Objects have some methods you can call:
+
+    - `Number.abs()`            get the absolute value of the number
+    - `Number.round(places)`    round to (default = 0) places
+    - `Value.abs()`             get the absolute value for this value
+    - `Value.round(places)`     round the value to (default = 0) places
+    - `Color.brighten(amount)`  brighten the color by amount percent of
+                                the current lightness, or by 0 - 100.
+                                brighening by 100 will result in white.
+    - `Color.darken(amount)`    darken the color by amount percent of the
+                                current lightness, or by 0 - 100.
+                                darkening by 100 will result in black.
+    - `String.length()`         the length of the string.
+    - `String.upper()`          uppercase version of the string.
+    - `String.lower()`          lowercase version of the string.
+    - `String.strip()`          version with leading an trailing whitespace
+                                removed.
+    - `String.split(delim)`     return a list of substrings, splitted by
+                                whitespace or delim.
+    - `String.eval()`           eval a css rule inside of a string. For
+                                example a string "42" would return the
+                                number 42 when parsed. But this can also
+                                contain complex expressions such as
+                                "(1 + 2) * 3px".
+    - `String.string()`         just return the string itself.
+    - `List.length()`           number of elements in a list.
+    - `List.join(delim)`        join a list by space char or delim.
+
+    Additionally all objects and expressions have a `.string()` method that
+    converts the object into a string, and a `.type()` method that returns
+    the type of the object as string.
+
+    If you have implicit concatenated expressions you can convert them into
+    a list using the `list` method::
+
+        (1 2 3 4 5).list()
+
+    does the same as::
+
+        1, 2, 3, 4, 5
+
+    :copyright: Copyright 2007 by Armin Ronacher, Georg Brandl.
+    :license: BSD License
+"""
 
 import re
 import colorsys
@@ -8,6 +229,178 @@ import operator
 _var_def_re = re.compile(r'^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)')
 _def_re = re.compile(r'^([a-zA-Z-]+)\s*:\s*(.+)')
 _line_comment_re = re.compile(r'(?<!:)//.*?$')
+
+# list of operators
+OPERATORS = ['+', '-', '*', '/', '%', '(', ')', ';', ',']
+
+# units and conversions
+UNITS = ['em', 'ex', 'px', 'cm', 'mm', 'in', 'pt', 'pc', 'deg', 'rad'
+          'grad', 'ms', 's', 'Hz', 'kHz', '%']
+CONV = {
+    'length': {
+        'mm': 1.0,
+        'cm': 10.0,
+        'in': 25.4,
+        'pt': 25.4 / 72,
+        'pc': 25.4 / 6
+    },
+    'time': {
+        'ms': 1.0,
+        's':  1000.0
+    },
+    'freq': {
+        'Hz':  1.0,
+        'kHz': 1000.0
+    }
+}
+UNIT_MAPPING = {}
+for measures, units in CONV.iteritems():
+    UNIT_MAPPING.update(dict((unit, measures) for unit in units))
+
+# color literals
+COLORS = {
+    'aliceblue': '#f0f8ff',
+    'antiquewhite': '#faebd7',
+    'aqua': '#00ffff',
+    'aquamarine': '#7fffd4',
+    'azure': '#f0ffff',
+    'beige': '#f5f5dc',
+    'bisque': '#ffe4c4',
+    'black': '#000000',
+    'blanchedalmond': '#ffebcd',
+    'blue': '#0000ff',
+    'blueviolet': '#8a2be2',
+    'brown': '#a52a2a',
+    'burlywood': '#deb887',
+    'cadetblue': '#5f9ea0',
+    'chartreuse': '#7fff00',
+    'chocolate': '#d2691e',
+    'coral': '#ff7f50',
+    'cornflowerblue': '#6495ed',
+    'cornsilk': '#fff8dc',
+    'crimson': '#dc143c',
+    'cyan': '#00ffff',
+    'darkblue': '#00008b',
+    'darkcyan': '#008b8b',
+    'darkgoldenrod': '#b8860b',
+    'darkgray': '#a9a9a9',
+    'darkgreen': '#006400',
+    'darkkhaki': '#bdb76b',
+    'darkmagenta': '#8b008b',
+    'darkolivegreen': '#556b2f',
+    'darkorange': '#ff8c00',
+    'darkorchid': '#9932cc',
+    'darkred': '#8b0000',
+    'darksalmon': '#e9967a',
+    'darkseagreen': '#8fbc8f',
+    'darkslateblue': '#483d8b',
+    'darkslategray': '#2f4f4f',
+    'darkturquoise': '#00ced1',
+    'darkviolet': '#9400d3',
+    'deeppink': '#ff1493',
+    'deepskyblue': '#00bfff',
+    'dimgray': '#696969',
+    'dodgerblue': '#1e90ff',
+    'firebrick': '#b22222',
+    'floralwhite': '#fffaf0',
+    'forestgreen': '#228b22',
+    'fuchsia': '#ff00ff',
+    'gainsboro': '#dcdcdc',
+    'ghostwhite': '#f8f8ff',
+    'gold': '#ffd700',
+    'goldenrod': '#daa520',
+    'gray': '#808080',
+    'green': '#008000',
+    'greenyellow': '#adff2f',
+    'honeydew': '#f0fff0',
+    'hotpink': '#ff69b4',
+    'indianred': '#cd5c5c',
+    'indigo': '#4b0082',
+    'ivory': '#fffff0',
+    'khaki': '#f0e68c',
+    'lavender': '#e6e6fa',
+    'lavenderblush': '#fff0f5',
+    'lawngreen': '#7cfc00',
+    'lemonchiffon': '#fffacd',
+    'lightblue': '#add8e6',
+    'lightcoral': '#f08080',
+    'lightcyan': '#e0ffff',
+    'lightgoldenrodyellow': '#fafad2',
+    'lightgreen': '#90ee90',
+    'lightgrey': '#d3d3d3',
+    'lightpink': '#ffb6c1',
+    'lightsalmon': '#ffa07a',
+    'lightseagreen': '#20b2aa',
+    'lightskyblue': '#87cefa',
+    'lightslategray': '#778899',
+    'lightsteelblue': '#b0c4de',
+    'lightyellow': '#ffffe0',
+    'lime': '#00ff00',
+    'limegreen': '#32cd32',
+    'linen': '#faf0e6',
+    'magenta': '#ff00ff',
+    'maroon': '#800000',
+    'mediumaquamarine': '#66cdaa',
+    'mediumblue': '#0000cd',
+    'mediumorchid': '#ba55d3',
+    'mediumpurple': '#9370db',
+    'mediumseagreen': '#3cb371',
+    'mediumslateblue': '#7b68ee',
+    'mediumspringgreen': '#00fa9a',
+    'mediumturquoise': '#48d1cc',
+    'mediumvioletred': '#c71585',
+    'midnightblue': '#191970',
+    'mintcream': '#f5fffa',
+    'mistyrose': '#ffe4e1',
+    'moccasin': '#ffe4b5',
+    'navajowhite': '#ffdead',
+    'navy': '#000080',
+    'oldlace': '#fdf5e6',
+    'olive': '#808000',
+    'olivedrab': '#6b8e23',
+    'orange': '#ffa500',
+    'orangered': '#ff4500',
+    'orchid': '#da70d6',
+    'palegoldenrod': '#eee8aa',
+    'palegreen': '#98fb98',
+    'paleturquoise': '#afeeee',
+    'palevioletred': '#db7093',
+    'papayawhip': '#ffefd5',
+    'peachpuff': '#ffdab9',
+    'peru': '#cd853f',
+    'pink': '#ffc0cb',
+    'plum': '#dda0dd',
+    'powderblue': '#b0e0e6',
+    'purple': '#800080',
+    'red': '#ff0000',
+    'rosybrown': '#bc8f8f',
+    'royalblue': '#4169e1',
+    'saddlebrown': '#8b4513',
+    'salmon': '#fa8072',
+    'sandybrown': '#f4a460',
+    'seagreen': '#2e8b57',
+    'seashell': '#fff5ee',
+    'sienna': '#a0522d',
+    'silver': '#c0c0c0',
+    'skyblue': '#87ceeb',
+    'slateblue': '#6a5acd',
+    'slategray': '#708090',
+    'snow': '#fffafa',
+    'springgreen': '#00ff7f',
+    'steelblue': '#4682b4',
+    'tan': '#d2b48c',
+    'teal': '#008080',
+    'thistle': '#d8bfd8',
+    'tomato': '#ff6347',
+    'turquoise': '#40e0d0',
+    'violet': '#ee82ee',
+    'wheat': '#f5deb3',
+    'white': '#ffffff',
+    'whitesmoke': '#f5f5f5',
+    'yellow': '#ffff00',
+    'yellowgreen': '#9acd32'
+}
+REV_COLORS = dict((v, k) for k, v in COLORS.iteritems())
 
 # partial regular expressions for the expr parser
 _r_number = '\d+(?:\.\d+)?'

@@ -80,7 +80,10 @@ class LineIterator(object):
         were requested.
         """
         try:
-            return self._next()
+            while True:
+                lineno, stripped_line = self._next()
+                if stripped_line:
+                    return lineno, stripped_line
         except StopIteration:
             if self.emit_endmarker:
                 self.emit_endmarker = False

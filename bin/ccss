@@ -39,7 +39,7 @@ def main():
 
     (options, args) = parser.parse_args()
     if options.eigen_test:
-        do_test()
+        print do_test()
     elif options.list_colors:
         list_colors()
     elif options.to_ccss:
@@ -92,7 +92,7 @@ def do_test():
     rx = re.compile(r'Example::\n(.*?)__END__(?ms)')
     text = rx.search(clevercss.__doc__).group(1)
     ccss = '\n'.join(line[8:].rstrip() for line in text.splitlines())
-    print clevercss.convert(ccss)
+    return clevercss.convert(ccss)
 
 def list_colors():
     print '%d known colors:' % len(clevercss.consts.COLORS)

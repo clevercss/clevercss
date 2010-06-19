@@ -174,7 +174,7 @@ COLORS = {
 REV_COLORS = dict((v, k) for k, v in COLORS.iteritems())
 
 # partial regular expressions for the expr parser
-r_number = '\d*(?:\.\d+)?'
+r_number = '(?:\s\-)?(?:\d+(?:\.\d+)?|\.\d+)'
 r_string = r"(?:'(?:[^'\\]*(?:\\.[^'\\]*)*)'|" \
           r'\"(?:[^"\\]*(?:\\.[^"\\]*)*)")'
 r_call = r'([a-zA-Z_][a-zA-Z0-9_]*)\('
@@ -193,6 +193,7 @@ regex = {
     'color': re.compile(r'#' + ('[a-fA-f0-9]{1,2}' * 3)),
     'string': re.compile('%s|([^\s*/();,.+$]+|\.(?!%s))+' % (r_string, r_call)),
     'url': re.compile(r'url\(\s*(%s|.*?)\s*\)' % r_string),
+    'import': re.compile(r'\@import\s+url\(\s*"?(%s|.*?)"?\s*\)' % r_string),
     'var': re.compile(r'(?<!\\)\$(?:([a-zA-Z_][a-zA-Z0-9_]*)|'
                     r'\{([a-zA-Z_][a-zA-Z0-9_]*)\})'),
     'call': re.compile(r'\.' + r_call)

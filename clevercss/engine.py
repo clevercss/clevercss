@@ -9,6 +9,7 @@ import utils
 import errors
 import expressions
 import line_iterator
+import os
 from errors import *
 
 class Engine(object):
@@ -17,19 +18,28 @@ class Engine(object):
     nobody uses this because the `convert` function wraps it.
     """
 
-    def __init__(self, source):
-        self._parser = p = Parser()
-        self.rules, self._vars = p.parse(source)
+    def __init__(self, source, parser=None, fname=None):
+        if parser is None:
+            parser = Parser(fname=fname)
+        self._parser = parser
+        self.rules, self._vars, self._imports = parser.parse(source)
 
     def evaluate(self, context=None):
         """Evaluate code."""
         expr = None
         if not isinstance(context, dict): 
             context = {}
+
         for key, value in context.iteritems():
-            expr = self._parser.parse_expr(1, value)
-            context[key] = expr
+            if isinstance(value, str):
+                expr = self._parser.parse_expr(1, value)
+                context[key] = expr
         context.update(self._vars)
+
+        # pull in imports
+        for fname, source in self._imports.iteritems():
+          for selectors, defs in Engine(source[1], fname=fname).evaluate(context):
+            yield selectors, defs
 
         for selectors, defs in self.rules:
             yield selectors, [(key, expr.to_string(context))
@@ -77,16 +87,21 @@ class Parser(object):
     the value parts.
     """
 
+    def __init__(self, fname=None):
+        self.fname = fname
+
     def preparse(self, source):
         """
         Do the line wise parsing and resolve indents.
         """
         rule = (None, [], [])
         vars = {}
+        imports = {}
         indention_stack = [0]
         state_stack = ['root']
         group_block_stack = []
         rule_stack = [rule]
+        sub_rules = []
         root_rules = rule[1]
         new_state = None
         lineiter = line_iterator.LineIterator(source, emit_endmarker=True)
@@ -142,8 +157,13 @@ class Parser(object):
             # root and rules
             elif state_stack[-1] in ('rule', 'root'):
                 # new rule blocks
-                if line.endswith(':'):
-                    s_rule = line[:-1].rstrip()
+                if line.endswith(','):
+                    sub_rules.append(line)
+                                
+                elif line.endswith(':'):
+                    sub_rules.append(line[:-1].rstrip())
+                    s_rule = ' '.join(sub_rules)
+                    sub_rules = []
                     if not s_rule:
                         fail('empty rule')
                     new_state = 'rule'
@@ -162,6 +182,16 @@ class Parser(object):
                         if key in vars:
                             fail('variable "%s" defined twice' % key)
                         vars[key] = (lineiter.lineno, m.group(2))
+                    elif line.startswith("@"):
+                        m = consts.regex['import'].search(line)
+                        if m is None:
+                            fail('invalid import syntax')
+                        url = m.group(1)
+                        if url in imports:
+                            fail('file "%s" imported twice' % url)
+                        if not os.path.isfile(url):
+                            fail('file "%s" was not found' % url)
+                        imports[url] = (lineiter.lineno, open(url).read())
                     else:
                         fail('Style definitions or group blocks are only '
                              'allowed inside a rule or group block.')
@@ -186,7 +216,7 @@ class Parser(object):
             else:
                 fail('unexpected character %s' % line[0])
 
-        return root_rules, vars
+        return root_rules, vars, imports
 
     def parse(self, source):
         """
@@ -243,7 +273,7 @@ class Parser(object):
                 branches = new_branches
             return [' '.join(branch) for branch in branches]
 
-        root_rules, vars = self.preparse(source)
+        root_rules, vars, imports = self.preparse(source)
         result = []
         stack = []
         for rule in root_rules:
@@ -253,7 +283,7 @@ class Parser(object):
         for name, args in vars.iteritems():
             real_vars[name] = self.parse_expr(*args)
 
-        return result, real_vars
+        return result, real_vars, imports
 
     def parse_expr(self, lineno, s):
         def parse():
@@ -286,6 +316,7 @@ class Parser(object):
                      (consts.regex['color'], process('color')),
                      (consts.regex['number'], process('number')),
                      (consts.regex['url'], process('url', 1)),
+                     (consts.regex['import'], process('import', 1)),
                      (consts.regex['string'], process_string),
                      (consts.regex['var'], lambda m: (m.group(1) or m.group(2), 'var')),
                      (consts.regex['whitespace'], None))
@@ -339,7 +370,7 @@ class Parser(object):
         left = self.mul(stream)
         while stream.current == ('-', 'op'):
             stream.next()
-            left = Sub(left, self.mul(stream), lineno=stream.lineno)
+            left = expressions.Sub(left, self.mul(stream), lineno=stream.lineno)
         return left
 
     def mul(self, stream):
@@ -410,6 +441,9 @@ class Parser(object):
         elif token == 'url':
             stream.next()
             node = expressions.URL(value, lineno=stream.lineno)
+        elif token == 'import':
+            stream.next()
+            node = expressions.Import(value, lineno=stream.lineno)
         elif token == 'var':
             stream.next()
             node = expressions.Var(value, lineno=stream.lineno)

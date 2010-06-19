@@ -3,3 +3,6 @@
 *.pyo
 *.swp
 *.swo
+CleverCSS.egg-info
+build
+dist
