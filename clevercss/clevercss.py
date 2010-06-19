@@ -220,10 +220,16 @@
     :copyright: Copyright 2007 by Armin Ronacher, Georg Brandl.
     :license: BSD License
 """
-
 import re
 import colorsys
 import operator
+import os.path
+
+
+VERSION = '0.1.6'
+
+__all__ = ['convert']
+
 
 # regular expresssions for the normal parser
 _var_def_re = re.compile(r'^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)')
@@ -231,34 +237,36 @@ _def_re = re.compile(r'^([a-zA-Z-]+)\s*:\s*(.+)')
 _line_comment_re = re.compile(r'(?<!:)//.*?$')
 
 # list of operators
-OPERATORS = ['+', '-', '*', '/', '%', '(', ')', ';', ',']
+_operators = ['+', '-', '*', '/', '%', '(', ')', ';', ',']
 
 # units and conversions
-UNITS = ['em', 'ex', 'px', 'cm', 'mm', 'in', 'pt', 'pc', 'deg', 'rad'
+_units = ['em', 'ex', 'px', 'cm', 'mm', 'in', 'pt', 'pc', 'deg', 'rad'
           'grad', 'ms', 's', 'Hz', 'kHz', '%']
-CONV = {
+_conv = {
     'length': {
-        'mm': 1.0,
-        'cm': 10.0,
-        'in': 25.4,
-        'pt': 25.4 / 72,
-        'pc': 25.4 / 6
+        'mm':       1.0,
+        'cm':       10.0,
+        'in':       25.4,
+        'pt':       25.4 / 72,
+        'pc':       25.4 / 6
     },
     'time': {
-        'ms': 1.0,
-        's':  1000.0
+        'ms':       1.0,
+        's':        1000.0
     },
     'freq': {
-        'Hz':  1.0,
-        'kHz': 1000.0
+        'Hz':       1.0,
+        'kHz':      1000.0
     }
 }
-UNIT_MAPPING = {}
-for measures, units in CONV.iteritems():
-    UNIT_MAPPING.update(dict((unit, measures) for unit in units))
+_conv_mapping = {}
+for t, m in _conv.iteritems():
+    for k in m:
+        _conv_mapping[k] = t
+del t, m, k
 
 # color literals
-COLORS = {
+_colors = {
     'aliceblue': '#f0f8ff',
     'antiquewhite': '#faebd7',
     'aqua': '#00ffff',
@@ -400,10 +408,10 @@ COLORS = {
     'yellow': '#ffff00',
     'yellowgreen': '#9acd32'
 }
-REV_COLORS = dict((v, k) for k, v in COLORS.iteritems())
+_reverse_colors = dict((v, k) for k, v in _colors.iteritems())
 
 # partial regular expressions for the expr parser
-_r_number = '\d+(?:\.\d+)?'
+_r_number = '(?:\s\-)?\d+(?:\.\d+)?'
 _r_string = r"(?:'(?:[^'\\]*(?:\\.[^'\\]*)*)'|" \
             r'\"(?:[^"\\]*(?:\\.[^"\\]*)*)")'
 _r_call = r'([a-zA-Z_][a-zA-Z0-9_]*)\('
@@ -416,6 +424,7 @@ _value_re = re.compile(r'(%s)(%s)(?![a-zA-Z0-9_])' % (_r_number, '|'.join(_units
 _color_re = re.compile(r'#' + ('[a-fA-f0-9]{1,2}' * 3))
 _string_re = re.compile('%s|([^\s*/();,.+$]+|\.(?!%s))+' % (_r_string, _r_call))
 _url_re = re.compile(r'url\(\s*(%s|.*?)\s*\)' % _r_string)
+_import_re = re.compile(r'\@import\s+url\(\s*"?(%s|.*?)"?\s*\)' % _r_string)
 _var_re = re.compile(r'(?<!\\)\$(?:([a-zA-Z_][a-zA-Z0-9_]*)|'
                      r'\{([a-zA-Z_][a-zA-Z0-9_]*)\})')
 _call_re = re.compile(r'\.' + _r_call)
@@ -448,36 +457,27 @@ def hls_to_rgb(hue, saturation, lightness):
     return tuple(int(round(x * 255)) for x in t)
 
 
-class ParserError(Exception):
-    """
-    Raised on syntax errors.
-    """
+class CleverCssException(Exception):
+    """Base class for exceptions raised by CleverCSS."""
 
     def __init__(self, lineno, message):
         self.lineno = lineno
+        self.msg = message
         Exception.__init__(self, message)
 
     def __str__(self):
         return '%s (line %s)' % (
-            self.message,
+            self.msg,
             self.lineno
         )
 
 
-class EvalException(Exception):
-    """
-    Raised during evaluation.
-    """
+class ParserError(CleverCssException):
+    """Raised on syntax errors."""
 
-    def __init__(self, lineno, message):
-        self.lineno = lineno
-        Exception.__init__(self, message)
 
-    def __str__(self):
-        return '%s (line %s)' % (
-            self.message,
-            self.lineno
-        )
+class EvalException(CleverCssException):
+    """Raised during evaluation."""
 
 
 class LineIterator(object):
@@ -552,12 +552,15 @@ class LineIterator(object):
 
     def next(self):
         """
-        Get the next line without multiline comments and emit the
-        endmarker if we reached the end of the sourcecode and endmarkers
+        Get the next non-whitespace line without multiline comments and emit
+        the endmarker if we reached the end of the sourcecode and endmarkers
         were requested.
         """
         try:
-            return self._next()
+            while True:
+                lineno, stripped_line = self._next()
+                if stripped_line:
+                    return lineno, stripped_line
         except StopIteration:
             if self.emit_endmarker:
                 self.emit_endmarker = False
@@ -571,19 +574,28 @@ class Engine(object):
     nobody uses this because the `convert` function wraps it.
     """
 
-    def __init__(self, source):
-        self._parser = p = Parser()
-        self.rules, self._vars = p.parse(source)
+    def __init__(self, source, parser=None, fname=None):
+        if parser is None:
+            parser = Parser(fname=fname)
+        self._parser = parser
+        self.rules, self._vars, self._imports = parser.parse(source)
 
     def evaluate(self, context=None):
         """Evaluate code."""
         expr = None
-        if not isinstance(context, dict): 
+        if not isinstance(context, dict):
             context = {}
+
         for key, value in context.iteritems():
+          if isinstance(value, str):
             expr = self._parser.parse_expr(1, value)
             context[key] = expr
         context.update(self._vars)
+
+        # pull in imports
+        for fname, source in self._imports.iteritems():
+          for selectors, defs in Engine(source[1], fname=fname).evaluate(context):
+            yield selectors, defs
 
         for selectors, defs in self.rules:
             yield selectors, [(key, expr.to_string(context))
@@ -1060,8 +1072,8 @@ class RGB(Expr):
                                     'rgb() literal only accept numbers and '
                                     'percentages.')
             if value < 0 or value > 255:
-                raise EvalError(self.lineno, 'rgb components must be in '
-                                'the range 0 to 255.')
+                raise EvalException(self.lineno, 'rgb components must be in '
+                                    'the range 0 to 255.')
             args.append(value)
         return Color(args, lineno=self.lineno)
 
@@ -1163,16 +1175,21 @@ class Parser(object):
     the value parts.
     """
 
+    def __init__(self, fname=None):
+        self.fname = fname
+
     def preparse(self, source):
         """
         Do the line wise parsing and resolve indents.
         """
         rule = (None, [], [])
         vars = {}
+        imports = {}
         indention_stack = [0]
         state_stack = ['root']
         group_block_stack = []
         rule_stack = [rule]
+        sub_rules = []
         root_rules = rule[1]
         new_state = None
         lineiter = LineIterator(source, emit_endmarker=True)
@@ -1228,8 +1245,13 @@ class Parser(object):
             # root and rules
             elif state_stack[-1] in ('rule', 'root'):
                 # new rule blocks
-                if line.endswith(':'):
-                    s_rule = line[:-1].rstrip()
+                if line.endswith(','):
+                    sub_rules.append(line)
+                                
+                elif line.endswith(':'):
+                    sub_rules.append(line[:-1].rstrip())
+                    s_rule = ' '.join(sub_rules)
+                    sub_rules = []
                     if not s_rule:
                         fail('empty rule')
                     new_state = 'rule'
@@ -1249,6 +1271,17 @@ class Parser(object):
                         if key in vars:
                             fail('variable "%s" defined twice' % key)
                         vars[key] = (lineiter.lineno, m.group(2))
+                    elif line.startswith("@"):
+                      m = _import_re.search(line)
+                      if m is None:
+                        fail('invalid import syntax')
+                      url = m.group(1)
+                      if url in imports:
+                          fail('file "%s" imported twice' % url)
+                      if not os.path.isfile(url):
+                        fail('file "%s" was not found' % url)
+                      imports[url] = (lineiter.lineno, open(url).read())
+                      
                     else:
                         fail('Style definitions or group blocks are only '
                              'allowed inside a rule or group block.')
@@ -1273,7 +1306,7 @@ class Parser(object):
             else:
                 fail('unexpected character %s' % line[0])
 
-        return root_rules, vars
+        return root_rules, vars, imports
 
     def parse(self, source):
         """
@@ -1330,7 +1363,7 @@ class Parser(object):
                 branches = new_branches
             return [' '.join(branch) for branch in branches]
 
-        root_rules, vars = self.preparse(source)
+        root_rules, vars, imports = self.preparse(source)
         result = []
         stack = []
         for rule in root_rules:
@@ -1340,7 +1373,7 @@ class Parser(object):
         for name, args in vars.iteritems():
             real_vars[name] = self.parse_expr(*args)
 
-        return result, real_vars
+        return result, real_vars, imports
 
     def parse_expr(self, lineno, s):
         def parse():
@@ -1365,12 +1398,14 @@ class Parser(object):
                     raise ParserError(lineno, 'invalid string escape')
                 return value, 'string'
 
-            rules = ((_operator_re, process('op')),
-                     (_call_re, process('call', 1)),
+            rules = (
                      (_value_re, lambda m: (m.groups(), 'value')),
+                     (_operator_re, process('op')),
+                     (_call_re, process('call', 1)),
                      (_color_re, process('color')),
                      (_number_re, process('number')),
                      (_url_re, process('url', 1)),
+                     (_import_re, process('import', 1)),
                      (_string_re, process_string),
                      (_var_re, lambda m: (m.group(1) or m.group(2), 'var')),
                      (_whitespace_re, None))
@@ -1484,6 +1519,9 @@ class Parser(object):
         elif token == 'url':
             stream.next()
             node = URL(value, lineno=stream.lineno)
+        elif token == 'import':
+            stream.next()
+            node = Import(value, lineno=stream.lineno)
         elif token == 'var':
             stream.next()
             node = Var(value, lineno=stream.lineno)
@@ -1518,4 +1556,85 @@ class Parser(object):
         stream.expect(')', 'op')
         return Call(node, method, args, lineno=stream.lineno)
 
+def eigen_test():
+    return convert('\n'.join(l[8:].rstrip() for l in
+                      re.compile(r'Example::\n(.*?)__END__(?ms)')
+                        .search(__doc__).group(1).splitlines()))
 
+def convert(source, context=None, fname=None):
+    """Convert a CleverCSS file into a normal stylesheet."""
+    return Engine(source, fname=fname).to_css(context)
+
+
+def main():
+    """Entrypoint for the shell."""
+    import sys
+
+    # help!
+    if '--help' in sys.argv:
+        print 'usage: %s <file 1> ... <file n>' % sys.argv[0]
+        print '  if called with some filenames it will read each file, cut of'
+        print '  the extension and append a ".css" extension and save. If '
+        print '  the target file has the same name as the source file it will'
+        print '  abort, but if it overrides a file during this process it will'
+        print '  continue. This is a desired functionality. To avoid that you'
+        print '  must not give your source file a .css extension.'
+        print
+        print '  if you call it without arguments it will read from stdin and'
+        print '  write the converted css to stdout.'
+        print
+        print '  called with the --eigen-test parameter it will evaluate the'
+        print '  example from the module docstring.'
+        print
+        print '  to get a list of known color names call it with --list-colors'
+
+    # version
+    elif '--version' in sys.argv:
+        print 'CleverCSS Version %s' % VERSION
+        print 'Licensed under the BSD license.'
+        print '(c) Copyright 2007 by Armin Ronacher and Georg Brandl.'
+
+    # evaluate the example from the docstring.
+    elif '--eigen-test' in sys.argv:
+        print eigen_test()
+
+    # color list
+    elif '--list-colors' in sys.argv:
+        print '%s known colors:' % len(_colors)
+        for color in sorted(_colors.items()):
+            print '  %-30s%s' % color
+
+    # read from stdin and write to stdout
+    elif len(sys.argv) == 1:
+        try:
+            print convert(sys.stdin.read())
+        except (ParserError, EvalException), e:
+            sys.stderr.write('Error: %s\n' % e)
+            sys.exit(1)
+
+    # convert some files
+    else:
+        for fn in sys.argv[1:]:
+            target = fn.rsplit('.', 1)[0] + '.css'
+            if fn == target:
+                sys.stderr.write('Error: same name for source and target file'
+                                 ' "%s".' % fn)
+                sys.exit(2)
+            src = file(fn)
+            try:
+                try:
+                    converted = convert(src.read(), fname=fn)
+                except (ParserError, EvalException), e:
+                    sys.stderr.write('Error in file %s: %s\n' % (fn, e))
+                    sys.exit(1)
+                dst = file(target, 'w')
+                try:
+                    dst.write(converted)
+                finally:
+                    dst.close()
+            finally:
+                src.close()
+
+
+if __name__ == '__main__':
+    main()
