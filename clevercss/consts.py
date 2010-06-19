@@ -185,6 +185,8 @@ regex = {
     'def': re.compile(r'^([a-zA-Z-]+)\s*:\s*(.+)'),
     'line_comment': re.compile(r'(?<!:)//.*?$'),
     'multi_comment': re.compile(r'/\*.+?\*/', re.S),
+    'macros_def': re.compile(r'^def ([a-zA-Z-]+)\s*:\s*$'),
+    'macros_call': re.compile(r'^\$([a-zA-Z-]+)'),
     # regular expressions for the expr parser
     'operator': re.compile('|'.join(re.escape(x) for x in OPERATORS)),
     'whitespace': re.compile(r'\s+'),

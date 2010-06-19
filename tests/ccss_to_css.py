@@ -167,6 +167,31 @@ class ConvertTestCase(TestCase):
         }'''))
 
 
+class MacroTestCase(TestCase):
+    def simpleMacro(self):
+        ccss = dedent('''
+        def simple:
+            color: red
+            font-size: 3px+10px
+        body:
+            $simple
+            width:200px
+        .other:
+            $simple
+        ''')
+        css = dedent('''\
+        body {
+          color: red;
+          font-size: 13px;
+          width: 200px;
+        }
+
+        .other {
+          color: red;
+          font-size: 13px;
+        }''')
+        self.assertEqual(convert(ccss), css)
+
 class LineIterTestCase(TestCase):
     def test_comments(self):
         line_iter = LineIterator(dedent(
@@ -184,6 +209,6 @@ class LineIterTestCase(TestCase):
     
 
 def all_tests():
-    return unittest.TestSuite(case.toSuite() for case in [ConvertTestCase, LineIterTestCase])
+    return unittest.TestSuite(case.toSuite() for case in [ConvertTestCase, LineIterTestCase, MacroTestCase])
 
 # vim: et sw=4 sts=4

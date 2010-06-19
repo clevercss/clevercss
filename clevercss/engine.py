@@ -114,6 +114,7 @@ class Parser(object):
         rule_stack = [rule]
         sub_rules = []
         root_rules = rule[1]
+        macroses = {}
         new_state = None
         lineiter = line_iterator.LineIterator(source, emit_endmarker=True)
 
@@ -121,10 +122,13 @@ class Parser(object):
             raise ParserError(lineno, msg)
 
         def parse_definition():
+            m = consts.regex['macros_call'].search(line)
+            if not m is None:
+                return lineiter.lineno, '__macros_call__', m.groups()[0]
             m = consts.regex['def'].search(line)
-            if m is None:
-                fail('invalid syntax for style definition')
-            return lineiter.lineno, m.group(1), m.group(2)
+            if not m is None:
+                return lineiter.lineno, m.group(1), m.group(2)
+            fail('invalid syntax for style definition')
 
         for lineno, line in lineiter:
             raw_line = line.rstrip().expandtabs()
@@ -166,9 +170,19 @@ class Parser(object):
                 break
 
             # root and rules
-            elif state_stack[-1] in ('rule', 'root'):
+            elif state_stack[-1] in ('rule', 'root', 'macros'):
+                # macros blocks
+                if line.startswith('def ') and line.strip().endswith(":")\
+                        and state_stack[-1] == 'root':
+                    s_macros = consts.regex['macros_def'].search(line).groups()[0]
+                    if s_macros in vars:
+                        fail('name "%s" already bound to variable' % s_macros)
+                    new_state = 'macros'
+                    macros = []
+                    macroses[s_macros] = macros
+
                 # new rule blocks
-                if line.endswith(','):
+                elif line.endswith(','):
                     sub_rules.append(line)
                                 
                 elif line.endswith(':'):
@@ -192,6 +206,8 @@ class Parser(object):
                         key = m.group(1)
                         if key in vars:
                             fail('variable "%s" defined twice' % key)
+                        if key in macroses:
+                            fail('name "%s" already bound to macros' % key)
                         vars[key] = (lineiter.lineno, m.group(2))
                     elif line.startswith("@"):
                         m = consts.regex['import'].search(line)
@@ -217,7 +233,10 @@ class Parser(object):
 
                 # otherwise parse a style definition.
                 else:
-                    rule[2].append(parse_definition())
+                    if state_stack[-1] == 'rule':
+                        rule[2].append(parse_definition())
+                    elif state_stack[-1] == 'macros':
+                        macros.append(parse_definition())
 
             # group blocks
             elif state_stack[-1] == 'group_block':
@@ -227,21 +246,30 @@ class Parser(object):
             else:
                 fail('unexpected character %s' % line[0])
 
-        return root_rules, vars, imports
+        return root_rules, vars, imports, macroses
 
     def parse(self, source):
         """
         Create a flat structure and parse inline expressions.
         """
-        def handle_rule(rule, children, defs):
-            def recurse():
+        expand_def = lambda (lineno, k, v): (k, self.parse_expr(lineno, v))
+        expand_defs = lambda it: map(expand_def, it)
+
+        def handle_rule(rule, children, defs, macroses):
+            def recurse(macroses):
                 if defs:
-                    result.append((get_selectors(), [
-                        (k, self.parse_expr(lineno, v)) for
-                        lineno, k, v in defs
-                    ]))
-                for child in children:
-                    handle_rule(*child)
+                    styles = []
+                    for lineno, k, v in defs:
+                        if k == '__macros_call__':
+                            macros_defs = macroses.get(v, None)
+                            if macros_defs is None:
+                                fail('No macros with name "%s" is defined' % v)
+                            styles.extend(expand_defs(macros_defs))
+                        else:
+                            styles.append(expand_def((lineno, k, v)))
+                    result.append((get_selectors(), styles))
+                for i_r, i_c, i_d in children:
+                    handle_rule(i_r, i_c, i_d, macroses)
 
             local_rules = []
             reference_rules = []
@@ -254,7 +282,7 @@ class Parser(object):
 
             if local_rules:
                 stack.append(local_rules)
-                recurse()
+                recurse(macroses)
                 stack.pop()
 
             if reference_rules:
@@ -269,7 +297,7 @@ class Parser(object):
                     for tmpl in reference_rules:
                         virtual_rules.append(tmpl.replace('&', parent_rule))
                 stack.append(virtual_rules)
-                recurse()
+                recurse(macroses)
                 stack.pop()
                 if push_back:
                     stack.append(parent_rules)
@@ -284,11 +312,11 @@ class Parser(object):
                 branches = new_branches
             return [' '.join(branch) for branch in branches]
 
-        root_rules, vars, imports = self.preparse(source)
+        root_rules, vars, imports, macroses = self.preparse(source)
         result = []
         stack = []
-        for rule in root_rules:
-            handle_rule(*rule)
+        for i_r, i_c, i_d in root_rules:
+            handle_rule(i_r, i_c, i_d, macroses)
 
         real_vars = {}
         for name, args in vars.iteritems():
