@@ -54,6 +54,23 @@ with this, via the `spritemap(fn)` call. For example::
         width: $other_button.width()
         height: $other_button.height()
 
+Mix-ins!!
+---------
+
+There is currently only partial mixin support -- arguments are not yet
+implemented. But they will be...sometime soon. Anyway, the syntax for a macro
+is [currently] pretty pythonic::
+
+    def macro:
+      color: red
+      border-width: 5px - 1px
+
+    body:
+      $macro
+
+This syntax may change, though, b/c conceivably "def macro:blah" could refer
+to the CSS "def macro { blah }", so there is some inconsistent magic going in.
+
 Nutshell
 ========
 
