@@ -129,6 +129,7 @@ def convert_many(files, options):
                 sys.exit(1)
             dst = open(target, 'w')
             try:
+                print 'Writing output to %s...' % fname
                 dst.write(converted)
             finally:
                 dst.close()
