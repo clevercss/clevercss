@@ -27,8 +27,10 @@ class Engine(object):
     def evaluate(self, context=None):
         """Evaluate code."""
         expr = None
-        if not isinstance(context, dict): 
+        if context is None:
             context = {}
+        elif not isinstance(context, dict): 
+            raise TypeError("context argument must be a dictionary")
 
         for key, value in context.iteritems():
             if isinstance(value, str):
