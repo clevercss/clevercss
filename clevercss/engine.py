@@ -96,6 +96,8 @@ class Parser(object):
     the value parts.
     """
 
+    sprite_map_cls = expressions.SpriteMap
+
     def __init__(self, fname=None):
         self.fname = fname
 
@@ -326,6 +328,7 @@ class Parser(object):
                      (consts.regex['number'], process('number')),
                      (consts.regex['url'], process('url', 1)),
                      (consts.regex['import'], process('import', 1)),
+                     (consts.regex['spritemap'], process('spritemap', 1)),
                      (consts.regex['string'], process_string),
                      (consts.regex['var'], lambda m: (m.group(1) or m.group(2), 'var')),
                      (consts.regex['whitespace'], None))
@@ -453,6 +456,13 @@ class Parser(object):
         elif token == 'import':
             stream.next()
             node = expressions.Import(value, lineno=stream.lineno)
+        elif token == 'spritemap':
+            stream.next()
+            if value[0] == value[-1] and value[0] in '"\'':
+                value = value[1:-1]
+            value = expressions.String(value, lineno=stream.lineno)
+            node = self.sprite_map_cls(value, fname=self.fname,
+                                       lineno=stream.lineno)
         elif token == 'var':
             stream.next()
             node = expressions.Var(value, lineno=stream.lineno)

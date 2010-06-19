@@ -1,0 +1,13 @@
+
+ui = spritemap(example.sprites)
+one = $ui.sprite('one.png')
+two = $ui.sprite('two.png')
+
+body:
+    background-image: $one
+    width: $one.width()
+    height: $one.height()
+
+    div.other, .some:
+        background-image: $two
+        

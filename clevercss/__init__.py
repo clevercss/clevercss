@@ -217,6 +217,25 @@
 
         1, 2, 3, 4, 5
 
+    Spritemaps
+    ----------
+
+    Commonly in CSS, you'll have an image of all your UI elements, and then use
+    background positioning to extract a part of that image. CleverCSS helps you
+    with this, via the `spritemap(fn)` call. For example::
+
+        ui = spritemap('ui.sprites')
+        some_button = $ui.sprite('some_button.png')
+        other_button = $ui.sprite('other_button.png')
+
+        div.some_button:
+            background: $some_button
+
+        div.other_button:
+            background: $other_button
+            width: $other_button.width()
+            height: $other_button.height()
+
     :copyright: Copyright 2007 by Armin Ronacher, Georg Brandl.
     :license: BSD License
 """
@@ -234,11 +253,11 @@ class Context(dict):
             args = ()
         super(Context, self).__init__(*args, **kwargs)
 
-def convert(source, context=None, minified=False):
+def convert(source, context=None, fname=None, minified=False):
     """Convert CleverCSS text into normal CSS."""
     context = Context(context)
     context.minified = minified
-    return engine.Engine(source).to_css(context)
+    return engine.Engine(source, fname=fname).to_css(context)
 
 __all__ = ['convert']
 

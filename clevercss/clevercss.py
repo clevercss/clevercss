@@ -217,9 +217,33 @@
 
         1, 2, 3, 4, 5
 
+    Spritemaps
+    ----------
+
+    Commonly in CSS, you'll have an image of all your UI elements, and then use
+    background positioning to extract a part of that image. CleverCSS helps you
+    with this, via the `spritemap(fn)` call. For example::
+
+        ui = spritemap('ui.sprites')
+        some_button = $ui.sprite('some_button.png')
+        other_button = $ui.sprite('other_button.png')
+
+        div.some_button:
+            background: $some_button
+
+        div.other_button:
+            background: $other_button
+            width: $other_button.width()
+            height: $other_button.height()
+
+    See the accompanying file "sprites_format.txt" for more information on that
+    file format.
+
     :copyright: Copyright 2007 by Armin Ronacher, Georg Brandl.
     :license: BSD License
 """
+import os
+import re
 import colorsys
 import operator
 import optparse
@@ -427,6 +451,7 @@ _color_re = re.compile(r'#' + ('[a-fA-f0-9]{1,2}' * 3))
 _string_re = re.compile('%s|([^\s*/();,.+$]+|\.(?!%s))+' % (_r_string, _r_call))
 _url_re = re.compile(r'url\(\s*(%s|.*?)\s*\)' % _r_string)
 _import_re = re.compile(r'\@import\s+url\(\s*"?(%s|.*?)"?\s*\)' % _r_string)
+_spritemap_re = re.compile(r'spritemap\(\s*(%s|.*?)\s*\)' % _r_string)
 _var_re = re.compile(r'(?<!\\)\$(?:([a-zA-Z_][a-zA-Z0-9_]*)|'
                      r'\{([a-zA-Z_][a-zA-Z0-9_]*)\})')
 _call_re = re.compile(r'\.' + _r_call)
@@ -476,7 +501,6 @@ class CleverCssException(Exception):
 
 class ParserError(CleverCssException):
     """Raised on syntax errors."""
-
 
 class EvalException(CleverCssException):
     """Raised during evaluation."""
@@ -1129,6 +1153,160 @@ class URL(Literal):
         return 'url(%s)' % Literal.to_string(self, context)
 
 
+class SpriteMap(Expr):
+    name = 'SpriteMap'
+    methods = {
+        'sprite': lambda x, c, v: Sprite(x, v.value, lineno=v.lineno)
+    }
+    _magic_names = {
+        "__url__": "image_url",
+        "__resources__": "sprite_resource_dir",
+        "__passthru__": "sprite_passthru_url",
+    }
+
+    image_url = None
+    sprite_resource_dir = None
+    sprite_passthru_url = None
+
+    def __init__(self, map_fname, fname=None, lineno=None):
+        Expr.__init__(self, lineno=lineno)
+        self.map_fname = map_fname
+        self.fname = fname
+
+    def evaluate(self, context):
+        self.map_fpath = os.path.join(os.path.dirname(self.fname),
+                                      self.map_fname.to_string(context))
+        self.mapping = self.read_spritemap(self.map_fpath)
+        return self
+
+    def read_spritemap(self, fpath):
+        fo = open(fpath, "U")
+        spritemap = {}
+        try:
+            for line in fo:
+                line = line.rstrip("\n")
+                rest = line.split(",")
+                key = rest.pop(0)
+                if key[-2:] == key[:2] == "__":
+                    if key not in self._magic_names:
+                        raise ValueError("%r is not a valid field" % (key,))
+                    att = self._magic_names[key]
+                    setattr(self, att, rest[0])
+                elif len(rest) != 4:
+                    raise ValueError("unexpected line: %r" % (line,))
+                else:
+                    x1, y1, x2, y2 = rest
+                    spritemap[key] = map(int, (x1, y1, x2, y2))
+        finally:
+            fo.close()
+        return spritemap
+
+    def get_sprite_def(self, name):
+        if name in self.mapping:
+            return self.mapping[name]
+        elif self.sprite_passthru_url:
+            return self._load_sprite(name)
+        else:
+            raise KeyError(name)
+
+    def _load_sprite(self, name):
+        try:
+            from PIL import Image
+        except ImportError:
+            raise KeyError(name)
+
+        spr_fname = os.path.join(os.path.dirname(self.map_fpath), name)
+        if not os.path.exists(spr_fname):
+            raise KeyError(name)
+
+        im = Image.open(spr_fname)
+        spr_def = (0, 0) + tuple(im.size)
+        self.mapping[name] = spr_def
+        return spr_def
+
+    def get_sprite_url(self, sprite):
+        if self.sprite_passthru_url:
+            return self.sprite_passthru_url + sprite.name
+        else:
+            return self.image_url
+
+    def annotate_used(self, sprite):
+        pass
+
+
+class AnnotatingSpriteMap(SpriteMap):
+    sprite_maps = []
+
+    def __init__(self, *args, **kwds):
+        SpriteMap.__init__(self, *args, **kwds)
+        self._sprites_used = {}
+        self.sprite_maps.append(self)
+
+    def read_spritemap(self, fname):
+        self.image_url = "<annotator>"
+        return {}
+
+    def get_sprite_def(self, name):
+        return 0, 0, 100, 100
+
+    def get_sprite_url(self, sprite):
+        return "<annotated %s>" % (sprite,)
+
+    def annotate_used(self, sprite):
+        self._sprites_used[sprite.name] = sprite
+
+    @classmethod
+    def all_used_sprites(cls):
+        for smap in cls.sprite_maps:
+            yield smap, smap._sprites_used.values()
+
+
+class Sprite(Expr):
+    name = 'Sprite'
+    methods = {
+        'url': lambda x, c: String("url('%s')" % x.spritemap.get_sprite_url(x)),
+        'position': lambda x, c: ImplicitConcat(x._pos_vals(c)),
+        'height': lambda x, c: Value(x.height, "px"),
+        'width': lambda x, c: Value(x.width, "px"),
+        'x1': lambda x, c: Value(x.x1, "px"),
+        'y1': lambda x, c: Value(x.y1, "px"),
+        'x2': lambda x, c: Value(x.x2, "px"),
+        'y2': lambda x, c: Value(x.y2, "px")
+    }
+
+    def __init__(self, spritemap, name, lineno=None):
+        self.lineno = lineno if lineno else name.lineno
+        self.name = name
+        self.spritemap = spritemap
+        self.spritemap.annotate_used(self)
+        try:
+            self.coords = spritemap.get_sprite_def(name)
+        except KeyError:
+            msg = "Couldn't find sprite %r in mapping" % name
+            raise EvalException(self.lineno, msg)
+
+    def _get_coords(self):
+        return self.x1, self.y1, self.x2, self.y2
+    def _set_coords(self, value):
+        self.x1, self.y1, self.x2, self.y2 = value
+    coords = property(_get_coords, _set_coords)
+
+    @property
+    def width(self): return self.x2 - self.x1
+    @property
+    def height(self): return self.y2 - self.y1
+
+    def _pos_vals(self, context):
+        """Get a list of position values."""
+        meths = self.methods
+        call_names = "x1", "y1", "x2", "y2"
+        return [meths[n](self, context) for n in call_names]
+
+    def to_string(self, context):
+        sprite_url = self.spritemap.get_sprite_url(self)
+        return "url('%s') -%dpx -%dpx" % (sprite_url, self.x1, self.y1)
+
+
 class Var(Expr):
 
     def __init__(self, name, lineno=None):
@@ -1190,6 +1368,8 @@ class Parser(object):
 
     def __init__(self, fname=None):
         self.fname = fname
+
+    sprite_map_cls = SpriteMap
 
     def preparse(self, source):
         """
@@ -1419,6 +1599,7 @@ class Parser(object):
                      (_number_re, process('number')),
                      (_url_re, process('url', 1)),
                      (_import_re, process('import', 1)),
+                     (_spritemap_re, process('spritemap', 1)),
                      (_string_re, process_string),
                      (_var_re, lambda m: (m.group(1) or m.group(2), 'var')),
                      (_whitespace_re, None))
@@ -1535,6 +1716,13 @@ class Parser(object):
         elif token == 'import':
             stream.next()
             node = Import(value, lineno=stream.lineno)
+        elif token == 'spritemap':
+            stream.next()
+            if value[0] == value[-1] and value[0] in '"\'':
+                value = value[1:-1]
+            value = String(value, lineno=stream.lineno)
+            node = self.sprite_map_cls(value, fname=self.fname,
+                                       lineno=stream.lineno)
         elif token == 'var':
             stream.next()
             node = Var(value, lineno=stream.lineno)
@@ -1589,33 +1777,36 @@ def convert(source, context=None, minified=False):
 
 def main():
     """Entrypoint for the shell."""
+    import sys
+    import optparse
+
+    if sys.argv[0] is None:
+        sys.argv[0] = "clevercss.py"
     parser = optparse.OptionParser()
+    parser.add_option("-o", "--out", metavar="FILE", help="Send output to FILE.")
+    parser.add_option("--eigen-test", action="store_true", help="Run eigen test.")
+    parser.add_option("--list-colors", action="store_true", help="List defined colors.")
+    parser.add_option("-V", "--version", action="store_true", help="Print out version info.")
+    parser.set_usage("""usage: %prog <file 1> ... <file n>
 
-    parser.usage = """%s <file 1> ... <file n>
-    if called with some filenames it will read each file, cut off the extension
-    and append a ".css" extension and save. If the target target file has the
-    same name as the source file it will abort, but if it overrides a file
-    during this process it will continue. This is a desired functionality. To
-    avoid that you must not give your source file a .css extension.
+If called with some filenames it will read each file, cut of
+the extension and append a ".css" extension and save. If
+the target file has the same name as the source file it will
+abort, but if it overrides a file during this process it will
+continue. This is a desired functionality. To avoid that you
+must not give your source file a .css extension.
 
-    if you call it without arguments it will read from stdin and write the
-    converted css to stdout.""" % os.path.basename(sys.argv[0])
+If you call it without arguments it will read from stdin and
+write the converted css to stdout.
 
-    parser.add_option('--version', action='store_true',
-            help="print version info")
-    parser.add_option('--eigen-test', action='store_true',
-            help="evaluate the example from the module docstring")
-    parser.add_option('--list-colors', action='store_true',
-            help="get a list of known color names")
-    parser.add_option('--minified', action='store_true',
-            help="output css with no unnecessary whitespace")
-    parser.add_option('--out-dir', type="string",
-            help="place the output files in this directory")
+Called with the --eigen-test parameter it will evaluate the
+example from the module docstring.
 
-    options, args = parser.parse_args()
+To get a list of known color names call it with --list-colors""")
+    opts, args = parser.parse_args()
 
     # version
-    if options.version:
+    if opts.version:
         print 'CleverCSS Version %s' % VERSION
         print 'Licensed under the BSD license.'
         print '(c) Copyright 2007 by Armin Ronacher and Georg Brandl.'
@@ -1628,16 +1819,15 @@ def main():
                         .search(__doc__).group(1).splitlines()),
                       minified=options.minified)
         return
-
     # color list
-    if options.list_colors:
+    elif opts.list_colors:
         print '%s known colors:' % len(_colors)
         for color in sorted(_colors.items()):
             print '  %-30s%s' % color
         return
 
     # read from stdin and write to stdout
-    if not args:
+    elif not args:
         try:
             print convert(sys.stdin.read(), minified=options.minified)
         except (ParserError, EvalException), e:
@@ -1645,32 +1835,3 @@ def main():
             sys.exit(1)
 
     # convert some files
-    else:
-        for fn in args:
-            fn = os.path.join(os.getcwd(), fn)
-            target = fn.rsplit('.', 1)[0] + '.css'
-            if options.out_dir:
-                target = os.path.join(os.getcwd(), options.out_dir, os.path.basename(target))
-            if fn == target:
-                sys.stderr.write('Error: same name for source and target file'
-                                 ' "%s".' % fn)
-                sys.exit(2)
-            src = file(fn)
-            try:
-                try:
-                    converted = convert(src.read(), minified=options.minified)
-                except (ParserError, EvalException), e:
-                    sys.stderr.write('Error in file %s: %s\n' % (fn, e))
-                    sys.exit(1)
-                print "Writing output to %s..." % target
-                dst = file(target, 'w')
-                try:
-                    dst.write(converted)
-                finally:
-                    dst.close()
-            finally:
-                src.close()
-
-
-if __name__ == '__main__':
-    main()
