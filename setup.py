@@ -20,7 +20,12 @@ setup(
     long_description=readme_text,
     classifiers=[
         'License :: OSI Approved :: BSD License',
-        'Programming Language :: Python'
+        'Programming Language :: Python',
+        'Environment :: Web Environment',
+        'Intended Audience :: Developers',
+        'Operating System :: OS Independent',
+        'Topic :: Internet :: WWW/HTTP',
+        'Topic :: Utilities'
     ],
     test_suite = 'tests.all_tests',
 )
