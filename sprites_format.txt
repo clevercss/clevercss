@@ -1,0 +1,22 @@
+The `.sprites` extension denotes a sprites mapping file, and is a rather plain
+and simple CSV-style format.
+
+In general, most lines will consist of mappings of sprite filenames to their
+`(x1, y1, x2, y2)` offsets into the actual map. For example::
+
+    a.png,0,0,12,24
+    b.png,12,0,48,36
+    c.png,0,24,10,34
+
+Above is a mapping of three images, with x1 being the second column, and so on.
+
+The other type of line are attribute lines. These describe metadata
+essentially, and look like this::
+
+    __foo__,value1
+    __bar__,value2
+
+Only one metadata item is so far defined and used, and that's `url`. It defines
+where the image map may be reached from the end CSS file. Its use should be
+obvious, as the sprite mapping routines need to know where to point the
+background URL.

@@ -1,4 +1,4 @@
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
     CleverCSS
     ~~~~~~~~~
@@ -217,24 +217,51 @@
 
         1, 2, 3, 4, 5
 
+    Spritemaps
+    ----------
+
+    Commonly in CSS, you'll have an image of all your UI elements, and then use
+    background positioning to extract a part of that image. CleverCSS helps you
+    with this, via the `spritemap(fn)` call. For example::
+
+        ui = spritemap('ui.sprites')
+        some_button = $ui.sprite('some_button.png')
+        other_button = $ui.sprite('other_button.png')
+
+        div.some_button:
+            background: $some_button
+
+        div.other_button:
+            background: $other_button
+            width: $other_button.width()
+            height: $other_button.height()
+
+    See the accompanying file "sprites_format.txt" for more information on that
+    file format.
+
     :copyright: Copyright 2007 by Armin Ronacher, Georg Brandl.
     :license: BSD License
 """
+import os
 import re
 import colorsys
 import operator
+import optparse
+import os
+import re
+import sys
 
-import logging as log
 
-
-VERSION = '0.1'
+VERSION = '0.1.6'
 
 __all__ = ['convert']
 
 
 # regular expresssions for the normal parser
 _var_def_re = re.compile(r'^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)')
-_def_re = re.compile(r'^([a-zA-Z-]+(?:\s*,\s*[a-zA-Z-]+)*)\s*:\s*(.+)')
+_macros_def_re = re.compile(r'^def ([a-zA-Z-]+)\s*:\s*')
+_def_re = re.compile(r'^([a-zA-Z-]+)\s*:\s*(.+)')
+_macros_call_re = re.compile(r'^\$([a-zA-Z-]+)')
 _line_comment_re = re.compile(r'(?<!:)//.*?$')
 
 # list of operators
@@ -412,7 +439,7 @@ _colors = {
 _reverse_colors = dict((v, k) for k, v in _colors.iteritems())
 
 # partial regular expressions for the expr parser
-_r_number = '\d+(?:\.\d+)?'
+_r_number = '(?:\s\-)?\d+(?:\.\d+)?'
 _r_string = r"(?:'(?:[^'\\]*(?:\\.[^'\\]*)*)'|" \
             r'\"(?:[^"\\]*(?:\\.[^"\\]*)*)")'
 _r_call = r'([a-zA-Z_][a-zA-Z0-9_]*)\('
@@ -423,8 +450,11 @@ _whitespace_re = re.compile(r'\s+')
 _number_re = re.compile(_r_number + '(?![a-zA-Z0-9_])')
 _value_re = re.compile(r'(%s)(%s)(?![a-zA-Z0-9_])' % (_r_number, '|'.join(_units)))
 _color_re = re.compile(r'#' + ('[a-fA-f0-9]{1,2}' * 3))
+_backstring_re = re.compile(r'`([^`]*)`')
 _string_re = re.compile('%s|([^\s*/();,.+$]+|\.(?!%s))+' % (_r_string, _r_call))
 _url_re = re.compile(r'url\(\s*(%s|.*?)\s*\)' % _r_string)
+_import_re = re.compile(r'\@import\s+url\(\s*"?(%s|.*?)"?\s*\)' % _r_string)
+_spritemap_re = re.compile(r'spritemap\(\s*(%s|.*?)\s*\)' % _r_string)
 _var_re = re.compile(r'(?<!\\)\$(?:([a-zA-Z_][a-zA-Z0-9_]*)|'
                      r'\{([a-zA-Z_][a-zA-Z0-9_]*)\})')
 _call_re = re.compile(r'\.' + _r_call)
@@ -457,36 +487,26 @@ def hls_to_rgb(hue, saturation, lightness):
     return tuple(int(round(x * 255)) for x in t)
 
 
-class ParserError(Exception):
-    """
-    Raised on syntax errors.
-    """
+class CleverCssException(Exception):
+    """Base class for exceptions raised by CleverCSS."""
 
     def __init__(self, lineno, message):
         self.lineno = lineno
+        self.msg = message
         Exception.__init__(self, message)
 
     def __str__(self):
         return '%s (line %s)' % (
-            self.message,
+            self.msg,
             self.lineno
         )
 
 
-class EvalException(Exception):
-    """
-    Raised during evaluation.
-    """
+class ParserError(CleverCssException):
+    """Raised on syntax errors."""
 
-    def __init__(self, lineno, message):
-        self.lineno = lineno
-        Exception.__init__(self, message)
-
-    def __str__(self):
-        return '%s (line %s)' % (
-            self.message,
-            self.lineno
-        )
+class EvalException(CleverCssException):
+    """Raised during evaluation."""
 
 
 class LineIterator(object):
@@ -561,12 +581,15 @@ class LineIterator(object):
 
     def next(self):
         """
-        Get the next line without multiline comments and emit the
-        endmarker if we reached the end of the sourcecode and endmarkers
+        Get the next non-whitespace line without multiline comments and emit
+        the endmarker if we reached the end of the sourcecode and endmarkers
         were requested.
         """
         try:
-            return self._next()
+            while True:
+                lineno, stripped_line = self._next()
+                if stripped_line:
+                    return lineno, stripped_line
         except StopIteration:
             if self.emit_endmarker:
                 self.emit_endmarker = False
@@ -580,18 +603,28 @@ class Engine(object):
     nobody uses this because the `convert` function wraps it.
     """
 
-    def __init__(self, source):
-        self._parser = p = Parser()
-        self.rules, self._vars = p.parse(source)
+    def __init__(self, source, parser=None, fname=None):
+        if parser is None:
+            parser = Parser(fname=fname)
+        self._parser = parser
+        self.rules, self._vars, self._imports = parser.parse(source)
 
     def evaluate(self, context=None):
         """Evaluate code."""
         expr = None
-        context = {}
+        if not isinstance(context, dict):
+            context = {}
+
         for key, value in context.iteritems():
+          if isinstance(value, str):
             expr = self._parser.parse_expr(1, value)
             context[key] = expr
         context.update(self._vars)
+
+        # pull in imports
+        for fname, source in self._imports.iteritems():
+          for selectors, defs in Engine(source[1], fname=fname).evaluate(context):
+            yield selectors, defs
 
         for selectors, defs in self.rules:
             yield selectors, [(key, expr.to_string(context))
@@ -599,6 +632,8 @@ class Engine(object):
 
     def to_css(self, context=None):
         """Evaluate the code and generate a CSS file."""
+        if context.minified:
+            return self.to_css_min(context)
         blocks = []
         for selectors, defs in self.evaluate(context):
             block = []
@@ -608,6 +643,13 @@ class Engine(object):
             block.append('}')
             blocks.append(u'\n'.join(block))
         return u'\n\n'.join(blocks)
+
+    def to_css_min(self, context=None):
+        """Evaluate the code and generate a CSS file."""
+        return u''.join(u'%s{%s}' % (
+                u','.join(s),
+                u';'.join(u'%s:%s' % kv for kv in d))
+            for s, d in self.evaluate(context))
 
 
 class TokenStream(object):
@@ -651,8 +693,7 @@ class Expr(object):
         return self
 
     def add(self, other, context):
-        val = String(self.to_string(context) + other.to_string(context))
-        return val
+        return String(self.to_string(context) + other.to_string(context))
 
     def sub(self, other, context):
         raise EvalException(self.lineno, 'cannot substract %s from %s' %
@@ -697,9 +738,6 @@ class Expr(object):
             ', '.join('%s=%r' % item for item in
                       self.__dict__.iteritems())
         )
-
-    def __str__(self):
-        return self.to_string(None)
 
 
 class ImplicitConcat(Expr):
@@ -820,8 +858,7 @@ class Number(Literal):
         elif isinstance(other, Value):
             return Value(self.value + other.value, other.unit,
                          lineno=self.lineno)
-        val = Literal.add(self, other, context)
-        return val
+        return Literal.add(self, other, context)
 
     def sub(self, other, context):
         if isinstance(other, Number):
@@ -830,7 +867,6 @@ class Number(Literal):
             return Value(self.value - other.value, other.unit,
                          lineno=self.lineno)
         return Literal.sub(self, other, context)
-
 
     def mul(self, other, context):
         if isinstance(other, Number):
@@ -882,34 +918,28 @@ class Value(Literal):
         self.unit = unit
 
     def add(self, other, context):
-        val =  self._conv_calc(other, context, operator.add, Literal.add,
+        return self._conv_calc(other, context, operator.add, Literal.add,
                                'cannot add %s and %s')
-        return val
-
-    def __add__(self, other):
-        return self.add(other,None)
-    def __radd__(self, other):
-        return self.add(other,None)
 
     def sub(self, other, context):
         return self._conv_calc(other, context, operator.sub, Literal.sub,
                                'cannot subtract %s from %s')
-    def __sub__(self, other):
-        return self.sub(other,None)
 
     def mul(self, other, context):
-        return self._conv_calc(other, context, operator.mul, Literal.mul,
-                               'cannot multiply %s from %s')
-    def __mul__(self, other):
-        return self.mul(other, None)
+        if isinstance(other, Number):
+            return Value(self.value * other.value, self.unit,
+                         lineno=self.lineno)
+        return Literal.mul(self, other, context)
 
     def div(self, other, context):
-        return self._conv_calc(other, context, operator.div, Literal.div,
-                               'cannot divide %s from %s')
-
-    def __div__(self, other):
-        return self.div(other,None)
-
+        if isinstance(other, Number):
+            try:
+                return Value(self.value / other.value, self.unit,
+                             lineno=self.lineno)
+            except ZeroDivisionError:
+                raise EvalException(self.lineno, 'cannot divide by zero',
+                                    lineno=self.lineno)
+        return Literal.div(self, other, context)
 
     def mod(self, other, context):
         if isinstance(other, Number):
@@ -923,11 +953,10 @@ class Value(Literal):
     def _conv_calc(self, other, context, calc, fallback, msg):
         if isinstance(other, Number):
             return Value(calc(self.value, other.value), self.unit)
-        elif isinstance(other, int) or isinstance(other, float):
-            return Value(calc(self.value, other), self.unit)
         elif isinstance(other, Value):
             if self.unit == other.unit:
-                return Value(calc(self.value, other.value), self.unit, lineno=self.lineno)
+                return Value(calc(self.value,other.value), other.unit,
+                             lineno=self.lineno)
             self_unit_type = _conv_mapping.get(self.unit)
             other_unit_type = _conv_mapping.get(other.unit)
             if not self_unit_type or not other_unit_type or \
@@ -960,14 +989,12 @@ def brighten_color(color, context, amount=None):
         if amount.unit == '%':
             if not amount.value:
                 return color
-            lightness += (1-lightness) * (1.0 - 100.0/(100.0 + amount.value))
+            lightness *= 1.0 + amount.value / 100.0
         else:
             raise EvalException(self.lineno, 'invalid unit %s for color '
                                 'calculations.' % amount.unit)
     elif isinstance(amount, Number):
         lightness += (amount.value / 100.0)
-    elif isinstance(amount, int):
-        lightness += (amount / 100.0)
     if lightness > 1:
         lightness = 1.0
     return Color(hls_to_rgb(hue, lightness, saturation))
@@ -981,7 +1008,7 @@ def darken_color(color, context, amount=None):
         if amount.unit == '%':
             if not amount.value:
                 return color
-            lightness *= (100.0-amount.value) / 100.0
+            lightness *= amount.value / 100.0
         else:
             raise EvalException(self.lineno, 'invalid unit %s for color '
                                 'calculations.' % amount.unit)
@@ -1000,12 +1027,6 @@ class Color(Literal):
         'darken':   darken_color,
         'hex':      lambda x, c: Color(x.value, x.lineno)
     }
-
-    def brighten(self, amt):
-        return brighten_color(self, None, amt)
-
-    def darken(self, amt):
-        return darken_color(self, None, amt)
 
     def __init__(self, value, lineno=None):
         self.from_name = False
@@ -1047,6 +1068,8 @@ class Color(Literal):
         return Literal.div(self, other, context)
 
     def to_string(self, context):
+        if context.minified and all(x >> 4 == x & 15 for x in self.value):
+            return '#%x%x%x' % tuple(x & 15 for x in self.value)
         code = '#%02x%02x%02x' % self.value
         return self.from_name and _reverse_colors.get(code) or code
 
@@ -1089,10 +1112,24 @@ class RGB(Expr):
                                     'rgb() literal only accept numbers and '
                                     'percentages.')
             if value < 0 or value > 255:
-                raise EvalError(self.lineno, 'rgb components must be in '
-                                'the range 0 to 255.')
+                raise EvalException(self.lineno, 'rgb components must be in '
+                                    'the range 0 to 255.')
             args.append(value)
         return Color(args, lineno=self.lineno)
+
+
+class Backstring(Literal):
+    """
+    A string meant to be escaped directly to output.
+    """
+    name = "backstring"
+
+    def __init__(self, nodes, lineno=None):
+        Expr.__init__(self, lineno)
+        self.nodes = nodes
+
+    def to_string(self, context):
+        return unicode(self.nodes)
 
 
 class String(Literal):
@@ -1131,6 +1168,160 @@ class URL(Literal):
 
     def to_string(self, context):
         return 'url(%s)' % Literal.to_string(self, context)
+
+
+class SpriteMap(Expr):
+    name = 'SpriteMap'
+    methods = {
+        'sprite': lambda x, c, v: Sprite(x, v.value, lineno=v.lineno)
+    }
+    _magic_names = {
+        "__url__": "image_url",
+        "__resources__": "sprite_resource_dir",
+        "__passthru__": "sprite_passthru_url",
+    }
+
+    image_url = None
+    sprite_resource_dir = None
+    sprite_passthru_url = None
+
+    def __init__(self, map_fname, fname=None, lineno=None):
+        Expr.__init__(self, lineno=lineno)
+        self.map_fname = map_fname
+        self.fname = fname
+
+    def evaluate(self, context):
+        self.map_fpath = os.path.join(os.path.dirname(self.fname),
+                                      self.map_fname.to_string(context))
+        self.mapping = self.read_spritemap(self.map_fpath)
+        return self
+
+    def read_spritemap(self, fpath):
+        fo = open(fpath, "U")
+        spritemap = {}
+        try:
+            for line in fo:
+                line = line.rstrip("\n")
+                rest = line.split(",")
+                key = rest.pop(0)
+                if key[-2:] == key[:2] == "__":
+                    if key not in self._magic_names:
+                        raise ValueError("%r is not a valid field" % (key,))
+                    att = self._magic_names[key]
+                    setattr(self, att, rest[0])
+                elif len(rest) != 4:
+                    raise ValueError("unexpected line: %r" % (line,))
+                else:
+                    x1, y1, x2, y2 = rest
+                    spritemap[key] = map(int, (x1, y1, x2, y2))
+        finally:
+            fo.close()
+        return spritemap
+
+    def get_sprite_def(self, name):
+        if name in self.mapping:
+            return self.mapping[name]
+        elif self.sprite_passthru_url:
+            return self._load_sprite(name)
+        else:
+            raise KeyError(name)
+
+    def _load_sprite(self, name):
+        try:
+            from PIL import Image
+        except ImportError:
+            raise KeyError(name)
+
+        spr_fname = os.path.join(os.path.dirname(self.map_fpath), name)
+        if not os.path.exists(spr_fname):
+            raise KeyError(name)
+
+        im = Image.open(spr_fname)
+        spr_def = (0, 0) + tuple(im.size)
+        self.mapping[name] = spr_def
+        return spr_def
+
+    def get_sprite_url(self, sprite):
+        if self.sprite_passthru_url:
+            return self.sprite_passthru_url + sprite.name
+        else:
+            return self.image_url
+
+    def annotate_used(self, sprite):
+        pass
+
+
+class AnnotatingSpriteMap(SpriteMap):
+    sprite_maps = []
+
+    def __init__(self, *args, **kwds):
+        SpriteMap.__init__(self, *args, **kwds)
+        self._sprites_used = {}
+        self.sprite_maps.append(self)
+
+    def read_spritemap(self, fname):
+        self.image_url = "<annotator>"
+        return {}
+
+    def get_sprite_def(self, name):
+        return 0, 0, 100, 100
+
+    def get_sprite_url(self, sprite):
+        return "<annotated %s>" % (sprite,)
+
+    def annotate_used(self, sprite):
+        self._sprites_used[sprite.name] = sprite
+
+    @classmethod
+    def all_used_sprites(cls):
+        for smap in cls.sprite_maps:
+            yield smap, smap._sprites_used.values()
+
+
+class Sprite(Expr):
+    name = 'Sprite'
+    methods = {
+        'url': lambda x, c: String("url('%s')" % x.spritemap.get_sprite_url(x)),
+        'position': lambda x, c: ImplicitConcat(x._pos_vals(c)),
+        'height': lambda x, c: Value(x.height, "px"),
+        'width': lambda x, c: Value(x.width, "px"),
+        'x1': lambda x, c: Value(x.x1, "px"),
+        'y1': lambda x, c: Value(x.y1, "px"),
+        'x2': lambda x, c: Value(x.x2, "px"),
+        'y2': lambda x, c: Value(x.y2, "px")
+    }
+
+    def __init__(self, spritemap, name, lineno=None):
+        self.lineno = lineno if lineno else name.lineno
+        self.name = name
+        self.spritemap = spritemap
+        self.spritemap.annotate_used(self)
+        try:
+            self.coords = spritemap.get_sprite_def(name)
+        except KeyError:
+            msg = "Couldn't find sprite %r in mapping" % name
+            raise EvalException(self.lineno, msg)
+
+    def _get_coords(self):
+        return self.x1, self.y1, self.x2, self.y2
+    def _set_coords(self, value):
+        self.x1, self.y1, self.x2, self.y2 = value
+    coords = property(_get_coords, _set_coords)
+
+    @property
+    def width(self): return self.x2 - self.x1
+    @property
+    def height(self): return self.y2 - self.y1
+
+    def _pos_vals(self, context):
+        """Get a list of position values."""
+        meths = self.methods
+        call_names = "x1", "y1", "x2", "y2"
+        return [meths[n](self, context) for n in call_names]
+
+    def to_string(self, context):
+        sprite_url = self.spritemap.get_sprite_url(self)
+        return "url('%s') -%dpx -%dpx" % (sprite_url, self.x1, self.y1)
 
 
 class Var(Expr):
@@ -1192,17 +1383,25 @@ class Parser(object):
     the value parts.
     """
 
+    def __init__(self, fname=None):
+        self.fname = fname
+
+    sprite_map_cls = SpriteMap
+
     def preparse(self, source):
         """
         Do the line wise parsing and resolve indents.
         """
         rule = (None, [], [])
         vars = {}
+        imports = {}
         indention_stack = [0]
         state_stack = ['root']
         group_block_stack = []
         rule_stack = [rule]
+        sub_rules = []
         root_rules = rule[1]
+        macroses = {}
         new_state = None
         lineiter = LineIterator(source, emit_endmarker=True)
 
@@ -1211,15 +1410,14 @@ class Parser(object):
 
         def parse_definition():
             m = _def_re.search(line)
-            if m is None:
-                print `line`
-                fail('invalid syntax for style definition')
-            keys = tuple(x.strip() for x in m.group(1).split(','))
-            return lineiter.lineno, keys, m.group(2)
+            if not m is None:
+                return lineiter.lineno, m.group(1), m.group(2)
+            m = _macros_call_re.search(line)
+            if not m is None:
+                return lineiter.lineno, '__macros_call__', m.groups()[0]
+            fail('invalid syntax for style definition')
 
         for lineno, line in lineiter:
-            log.debug('%s(#%s)'%(80*'-',lineno))
-            log.debug('%s'%(line))
             raw_line = line.rstrip().expandtabs()
             line = raw_line.lstrip()
             indention = len(raw_line) - len(line)
@@ -1231,8 +1429,6 @@ class Parser(object):
                 state_stack.append(new_state)
                 indention_stack.append(indention)
                 new_state = None
-                log.debug('%s| %s'%(' '*indention, indention_stack))
-                log.debug('%s|   state_stack=%s'%(' '*indention, state_stack))
 
             # dedenting
             elif indention < indention_stack[-1]:
@@ -1243,14 +1439,11 @@ class Parser(object):
                                 rule = rule_stack.pop()
                             elif state_stack[-1] == 'group_block':
                                 name, part_defs = group_block_stack.pop()
-                                for lineno, keys, val in part_defs:
-                                    for key in keys:
-                                        rule[2].append((lineno, name + '-' +
-                                                        key, val))
+                                for lineno, key, val in part_defs:
+                                    rule[2].append((lineno, name + '-' +
+                                                    key, val))
                             indention_stack.pop()
                             state_stack.pop()
-                            log.debug('%s| %s'%(' '*indention, indention_stack))
-                            log.debug('%s|   state_stack=%s'%(' '*indention, state_stack))
                         break
                 else:
                     fail('invalid dedent')
@@ -1264,10 +1457,25 @@ class Parser(object):
                 break
 
             # root and rules
-            elif state_stack[-1] in ('rule', 'root'):
+            elif state_stack[-1] in ('rule', 'root', 'macros'):
+                # macros blocks
+                if line.startswith('def ') and line.endswith(":")\
+                        and state_stack[-1] == 'root':
+                    s_macros = _macros_def_re.search(line).groups()[0]
+                    if s_macros in vars:
+                        fail('name "%s" already bound to variable' % s_macros)
+                    new_state = 'macros'
+                    macros = []
+                    macroses[s_macros] = macros
+
                 # new rule blocks
-                if line.endswith(':'):
-                    s_rule = line[:-1].rstrip()
+                if line.endswith(','):
+                    sub_rules.append(line)
+                                
+                elif line.endswith(':'):
+                    sub_rules.append(line[:-1].rstrip())
+                    s_rule = ' '.join(sub_rules)
+                    sub_rules = []
                     if not s_rule:
                         fail('empty rule')
                     new_state = 'rule'
@@ -1286,7 +1494,20 @@ class Parser(object):
                         key = m.group(1)
                         if key in vars:
                             fail('variable "%s" defined twice' % key)
+                        if key in macroses:
+                            fail('name "%s" already bound to macros' % key)
                         vars[key] = (lineiter.lineno, m.group(2))
+                    elif line.startswith("@"):
+                      m = _import_re.search(line)
+                      if m is None:
+                        fail('invalid import syntax')
+                      url = m.group(1)
+                      if url in imports:
+                          fail('file "%s" imported twice' % url)
+                      if not os.path.isfile(url):
+                        fail('file "%s" was not found' % url)
+                      imports[url] = (lineiter.lineno, open(url).read())
+                      
                     else:
                         fail('Style definitions or group blocks are only '
                              'allowed inside a rule or group block.')
@@ -1301,9 +1522,10 @@ class Parser(object):
 
                 # otherwise parse a style definition.
                 else:
-                    lineno, keys, value = parse_definition()
-                    for key in keys:
-                        rule[2].append((lineno, key, value))
+                    if state_stack[-1] == 'rule':
+                        rule[2].append(parse_definition())
+                    elif state_stack[-1] == 'macros':
+                        macros.append(parse_definition())
 
             # group blocks
             elif state_stack[-1] == 'group_block':
@@ -1313,22 +1535,30 @@ class Parser(object):
             else:
                 fail('unexpected character %s' % line[0])
 
-        return root_rules, vars
+        return root_rules, vars, imports, macroses
 
     def parse(self, source):
         """
         Create a flat structure and parse inline expressions.
         """
-        def handle_rule(rule, children, defs):
-            def recurse():
-                if defs:
-                    result.append((get_selectors(), [
-                        (k, self.parse_expr(lineno, v)) for
-                        lineno, k, v in defs
-                    ]))
-                for child in children:
-                    handle_rule(*child)
+        expand_def = lambda (lineno, k, v): (k, self.parse_expr(lineno, v))
+        expand_defs = lambda it: map(expand_def, it)
 
+        def handle_rule(rule, children, defs, macroses):
+            def recurse(macroses):
+                if defs:
+                    styles = []
+                    for lineno, k, v in defs:
+                        if k == '__macros_call__':
+                            macros_defs = macroses.get(v, None)
+                            if macros_defs is None:
+                                fail('No macros with name "%s" is defined' % v)
+                            styles.extend(expand_defs(macros_defs))
+                        else:
+                            styles.append(expand_def((lineno, k, v)))
+                    result.append((get_selectors(), styles))
+                for i_r, i_c, i_d in children:
+                    handle_rule(i_r, i_c, i_d, macroses)
             local_rules = []
             reference_rules = []
             for r in rule.split(','):
@@ -1340,7 +1570,7 @@ class Parser(object):
 
             if local_rules:
                 stack.append(local_rules)
-                recurse()
+                recurse(macroses)
                 stack.pop()
 
             if reference_rules:
@@ -1355,7 +1585,7 @@ class Parser(object):
                     for tmpl in reference_rules:
                         virtual_rules.append(tmpl.replace('&', parent_rule))
                 stack.append(virtual_rules)
-                recurse()
+                recurse(macroses)
                 stack.pop()
                 if push_back:
                     stack.append(parent_rules)
@@ -1370,17 +1600,16 @@ class Parser(object):
                 branches = new_branches
             return [' '.join(branch) for branch in branches]
 
-        root_rules, vars = self.preparse(source)
+        root_rules, vars, imports, macroses = self.preparse(source)
         result = []
         stack = []
-        for rule in root_rules:
-            handle_rule(*rule)
-
+        for i_r, i_c, i_d in root_rules:
+            handle_rule(i_r, i_c, i_d, macroses)
         real_vars = {}
         for name, args in vars.iteritems():
             real_vars[name] = self.parse_expr(*args)
 
-        return result, real_vars
+        return result, real_vars, imports
 
     def parse_expr(self, lineno, s):
         def parse():
@@ -1405,12 +1634,16 @@ class Parser(object):
                     raise ParserError(lineno, 'invalid string escape')
                 return value, 'string'
 
-            rules = ((_operator_re, process('op')),
-                     (_call_re, process('call', 1)),
+            rules = (
                      (_value_re, lambda m: (m.groups(), 'value')),
+                     (_operator_re, process('op')),
+                     (_call_re, process('call', 1)),
                      (_color_re, process('color')),
                      (_number_re, process('number')),
                      (_url_re, process('url', 1)),
+                     (_import_re, process('import', 1)),
+                     (_spritemap_re, process('spritemap', 1)),
+                     (_backstring_re, process('backstring', 1)),
                      (_string_re, process_string),
                      (_var_re, lambda m: (m.group(1) or m.group(2), 'var')),
                      (_whitespace_re, None))
@@ -1518,12 +1751,25 @@ class Parser(object):
                 return RGB(tuple(args), lineno=stream.lineno)
             else:
                 node = String('rgb')
+        elif token == 'backstring':
+            stream.next()
+            node = Backstring(value, lineno=stream.lineno)
         elif token == 'string':
             stream.next()
             node = String(value, lineno=stream.lineno)
         elif token == 'url':
             stream.next()
             node = URL(value, lineno=stream.lineno)
+        elif token == 'import':
+            stream.next()
+            node = Import(value, lineno=stream.lineno)
+        elif token == 'spritemap':
+            stream.next()
+            if value[0] == value[-1] and value[0] in '"\'':
+                value = value[1:-1]
+            value = String(value, lineno=stream.lineno)
+            node = self.sprite_map_cls(value, fname=self.fname,
+                                       lineno=stream.lineno)
         elif token == 'var':
             stream.next()
             node = Var(value, lineno=stream.lineno)
@@ -1558,87 +1804,81 @@ class Parser(object):
         stream.expect(')', 'op')
         return Call(node, method, args, lineno=stream.lineno)
 
+def eigen_test():
+    return convert('\n'.join(l[8:].rstrip() for l in
+                      re.compile(r'Example::\n(.*?)__END__(?ms)')
+                        .search(__doc__).group(1).splitlines()))
 
-def convert(source, context=None):
+class Context(dict):
+    def __init__(self, *args, **kwargs):
+        if args == (None,):
+            args = ()
+        super(Context, self).__init__(*args, **kwargs)
+
+def convert(source, context=None, minified=False):
     """Convert a CleverCSS file into a normal stylesheet."""
+    context = Context(context)
+    context.minified = minified
     return Engine(source).to_css(context)
 
 
 def main():
     """Entrypoint for the shell."""
     import sys
+    import optparse
 
-    if '--debug' in sys.argv:
-        log.basicConfig(level=log.DEBUG,)
-        sys.argv.remove('--debug')
+    if sys.argv[0] is None:
+        sys.argv[0] = "clevercss.py"
+    parser = optparse.OptionParser()
+    parser.add_option("-o", "--out", metavar="FILE", help="Send output to FILE.")
+    parser.add_option("--eigen-test", action="store_true", help="Run eigen test.")
+    parser.add_option("--list-colors", action="store_true", help="List defined colors.")
+    parser.add_option("-V", "--version", action="store_true", help="Print out version info.")
+    parser.set_usage("""usage: %prog <file 1> ... <file n>
 
-    # help!
-    if '--help' in sys.argv:
-        print 'usage: %s <file 1> ... <file n>' % sys.argv[0]
-        print '  if called with some filenames it will read each file, cut of'
-        print '  the extension and append a ".css" extension and save. If '
-        print '  the target file has the same name as the source file it will'
-        print '  abort, but if it overrides a file during this process it will'
-        print '  continue. This is a desired functionality. To avoid that you'
-        print '  must not give your source file a .css extension.'
-        print
-        print '  if you call it without arguments it will read from stdin and'
-        print '  write the converted css to stdout.'
-        print
-        print '  called with the --eigen-test parameter it will evaluate the'
-        print '  example from the module docstring.'
-        print
-        print '  to get a list of known color names call it with --list-colors'
+If called with some filenames it will read each file, cut of
+the extension and append a ".css" extension and save. If
+the target file has the same name as the source file it will
+abort, but if it overrides a file during this process it will
+continue. This is a desired functionality. To avoid that you
+must not give your source file a .css extension.
+
+If you call it without arguments it will read from stdin and
+write the converted css to stdout.
+
+Called with the --eigen-test parameter it will evaluate the
+example from the module docstring.
+
+To get a list of known color names call it with --list-colors""")
+    opts, args = parser.parse_args()
 
     # version
-    elif '--version' in sys.argv:
+    if opts.version:
         print 'CleverCSS Version %s' % VERSION
         print 'Licensed under the BSD license.'
         print '(c) Copyright 2007 by Armin Ronacher and Georg Brandl.'
+        return
 
     # evaluate the example from the docstring.
-    elif '--eigen-test' in sys.argv:
+    if options.eigen_test:
         print convert('\n'.join(l[8:].rstrip() for l in
                       re.compile(r'Example::\n(.*?)__END__(?ms)')
-                        .search(__doc__).group(1).splitlines()))
-
+                        .search(__doc__).group(1).splitlines()),
+                      minified=options.minified)
+        return
     # color list
-    elif '--list-colors' in sys.argv:
+    elif opts.list_colors:
         print '%s known colors:' % len(_colors)
         for color in sorted(_colors.items()):
             print '  %-30s%s' % color
+        return
 
     # read from stdin and write to stdout
-    elif len(sys.argv) == 1:
+    elif not args:
         try:
-            print convert(sys.stdin.read())
+            print convert(sys.stdin.read(), minified=options.minified)
         except (ParserError, EvalException), e:
             sys.stderr.write('Error: %s\n' % e)
             sys.exit(1)
 
     # convert some files
-    else:
-        for fn in sys.argv[1:]:
-            target = fn.rsplit('.', 1)[0] + '.css'
-            if fn == target:
-                sys.stderr.write('Error: same name for source and target file'
-                                 ' "%s".' % fn)
-                sys.exit(2)
-            src = file(fn)
-            try:
-                try:
-                    converted = convert(src.read())
-                except (ParserError, EvalException), e:
-                    sys.stderr.write('Error in file %s: %s\n' % (fn, e))
-                    sys.exit(1)
-                dst = file(target, 'w')
-                try:
-                    dst.write(converted)
-                finally:
-                    dst.close()
-            finally:
-                src.close()
-
-
-if __name__ == '__main__':
-    main()
