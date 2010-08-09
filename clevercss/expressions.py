@@ -45,7 +45,7 @@ class Expr(object):
                             (self.name, other.name))
 
     def neg(self, context):
-        raise EvalException(self.lineno, 'cannot negate %s by %s' % self.name)
+        raise EvalException(self.lineno, 'cannot negate %s' % self.name)
 
     def to_string(self, context):
         return self.evaluate(context).to_string(context)
