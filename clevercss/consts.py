@@ -188,6 +188,7 @@ regex = {
     'macros_def': re.compile(r'^def ([a-zA-Z-]+)\s*:\s*$'),
     'macros_call': re.compile(r'^\$([a-zA-Z-]+)'),
     # regular expressions for the expr parser
+    'vendorprefix': re.compile(r'-(?:moz|webkit)-[a-z-]+'),
     'operator': re.compile('|'.join(re.escape(x) for x in OPERATORS)),
     'whitespace': re.compile(r'\s+'),
     'number': re.compile(r_number + '(?![a-zA-Z0-9_])'),

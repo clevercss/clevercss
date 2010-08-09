@@ -351,7 +351,8 @@ class Parser(object):
                     raise ParserError(lineno, 'invalid string escape')
                 return value, 'string'
 
-            rules = ((consts.regex['operator'], process('op')),
+            rules = ((consts.regex['vendorprefix'], process_string),
+                     (consts.regex['operator'], process('op')),
                      (consts.regex['call'], process('call', 1)),
                      (consts.regex['value'], lambda m: (m.groups(), 'value')),
                      (consts.regex['color'], process('color')),
