@@ -218,9 +218,12 @@ class Parser(object):
                         url = m.group(1)
                         if url in imports:
                             fail('file "%s" imported twice' % url)
-                        if not os.path.isfile(url):
-                            fail('file "%s" was not found' % url)
-                        imports[url] = (lineiter.lineno, open(url).read())
+                        # Use absolute paths to allow cross-directory execution
+                        absdir = os.path.dirname(os.path.abspath(self.fname))
+                        absurl = os.path.join(absdir, url)
+                        if not os.path.isfile(absurl):
+                            fail('file "%s" was not found' % absurl)
+                        imports[absurl] = (lineiter.lineno, open(absurl).read())
                     else:
                         fail('Style definitions or group blocks are only '
                              'allowed inside a rule or group block.')
