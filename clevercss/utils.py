@@ -44,9 +44,15 @@ def tint_color(color, context, lighten=None):
     white). This works in the opposite manner to the brighten function; a
     value of 0% produces white (no ink); a value of 50% produces a color
     halfway between the original and white (e.g. 50% halftone). N.B. that less
-    ink also means lower saturation, which decreases at the same rate as the
+    ink also means lower saturation, which decreases linearly with the
     darkness of the ink. Only positive values for tints are allowed; if you
     wish to darken an existing color use the darken method or shade_color.
+
+    N.B. real printing presses -- and therefore some software -- may produce
+    slightly different saturations at different tone curves. If you're really,
+    REALLY anal about the colour that gets reproduced, you should probably
+    trust your design software. For most intents and purposes, though, this
+    is going to be more than sufficient.
 
     Valueless tints will be returned unmodified.
     """
@@ -57,10 +63,16 @@ def tint_color(color, context, lighten=None):
     lighten = abs(lighten) # Positive values only!
 
     hue, lit, sat = rgb_to_hls(*color.value)
+
+    # Calculate relative lightness
     lavail = 1.0 - lit
     lused = lavail - (lavail * (lighten / 100))
     lnew = lused + (1.0 - lavail)
-    return expressions.Color(hls_to_rgb(hue, lnew, sat))
+
+    # Corresponding relative (de-)saturation
+    snew = sat * (1 / (lnew/lit))
+
+    return expressions.Color(hls_to_rgb(hue, lnew, snew))
 
 def shade_color(color, context, values=None):
     """Allows specification of an absolute saturation as well as a
@@ -105,7 +117,7 @@ def shade_color(color, context, values=None):
 
     hue, sat, val = rgb_to_hsv(*color.value)
 
-    # Calculate relative lightness
+    # Calculate relative Value (referred to as lightness to avoid confusion)
     if lightness >= 0:
         lavail = 1.0 - val
         lnew = val + (lavail * (lightness / 100))
