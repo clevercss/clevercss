@@ -307,6 +307,8 @@ class Color(Literal):
     methods = {
         'brighten': utils.brighten_color,
         'darken':   utils.darken_color,
+        'tint':     utils.tint_color,
+        'shade':    utils.shade_color,
         'hex':      lambda x, c: Color(x.value, x.lineno)
     }
 
@@ -668,6 +670,16 @@ class List(Expr):
     def __init__(self, items, lineno=None):
         Expr.__init__(self, lineno)
         self.items = items
+
+    def __iter__(self):
+        for item in self.items:
+            yield item
+
+    def __getslice__(self, i, j):
+        return self.items[i:j]
+
+    def __getitem__(self, i):
+        return self.items[i]
 
     def add(self, other):
         if isinstance(other, List):
