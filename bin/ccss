@@ -31,7 +31,7 @@ def main():
     parser.add_option('--eigen-test', action='store_true',
             help='evaluate the example from the docstring')
     parser.add_option('--list-colors', action='store_true',
-            help='list all known coor names')
+            help='list all known color names')
     parser.add_option('-n', '--no-overwrite', action='store_true', dest='no_overwrite',
             help='don\'t overwrite any files (default=false)')
     parser.add_option('--to-ccss', action='store_true',
@@ -129,7 +129,7 @@ def convert_many(files, options):
                 sys.exit(1)
             dst = open(target, 'w')
             try:
-                print 'Writing output to %s...' % fname
+                print 'Writing output to %s...' % target
                 dst.write(converted)
             finally:
                 dst.close()
