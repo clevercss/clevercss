@@ -62,7 +62,7 @@ def tint_color(color, context, lighten=None):
     lnew = lused + (1.0 - lavail)
     return expressions.Color(hls_to_rgb(hue, lnew, sat))
 
-def shade_color(color, context, values):
+def shade_color(color, context, values=None):
     """Allows specification of an absolute saturation as well as a
     relative value (lighteness) from the base color. Unlike tinting, shades
     can be either lighter OR darker than their original value; to achieve a
@@ -91,6 +91,8 @@ def shade_color(color, context, values):
         return color
     lightness = 0.0
     saturation = 0.0
+    if isinstance(values, (expressions.Value, expressions.Number, expressions.Neg)):
+        values = expressions.List([values,])
     for idx, value in enumerate(values):
         if isinstance(value, (expressions.Value, expressions.Number)):
             value = value.value
