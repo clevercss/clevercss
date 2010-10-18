@@ -589,7 +589,7 @@ class AnnotatingSpriteMap(SpriteMap):
 class Sprite(Expr):
     name = 'Sprite'
     methods = {
-        'url': lambda x, c: String("url('%s')" % x.spritemap.get_sprite_url(x)),
+        'url': lambda x, c: String("url(%s)" % x.spritemap.get_sprite_url(x)),
         'position': lambda x, c: ImplicitConcat(x._pos_vals(c)),
         'height': lambda x, c: Value(x.height, "px"),
         'width': lambda x, c: Value(x.width, "px"),
@@ -629,7 +629,7 @@ class Sprite(Expr):
 
     def to_string(self, context):
         sprite_url = self.spritemap.get_sprite_url(self)
-        return "url('%s') -%dpx -%dpx" % (sprite_url, self.x1, self.y1)
+        return "url(%s) -%dpx -%dpx" % (sprite_url, self.x1, self.y1)
 
 class Var(Expr):
 
