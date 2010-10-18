@@ -70,6 +70,8 @@ def tint_color(color, context, lighten=None):
     lnew = lused + (1.0 - lavail)
 
     # Corresponding relative (de-)saturation
+    if lit == 0:
+        lit = 1
     snew = sat * (1 / (lnew/lit))
 
     return expressions.Color(hls_to_rgb(hue, lnew, snew))
