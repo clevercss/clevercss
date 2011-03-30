@@ -12,7 +12,7 @@ setup(
     author_email='armin.ronacher@active-4.com',
     maintainer='David Ziegler',
     maintainer_email='david.ziegler@gmail.com',
-    version='0.2',
+    version='0.2.dev',
     url='http://sandbox.pocoo.org/clevercss/',
     download_url='http://github.com/dziegler/clevercss/tree',
     py_modules=['clevercss'],
