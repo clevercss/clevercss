@@ -17,8 +17,6 @@ setup(
     maintainer = 'David Ziegler',
     version='0.2.dev',
     description='python inspired sass-like css preprocessor',
-    author = 'Kevin Williams',
-    author_email = 'kevin@isolationism.com',
     license = 'BSD',
     url = 'https://github.com/isolationism/clevercss',
     py_modules=['clevercss'],
