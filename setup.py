@@ -1,26 +1,33 @@
 #!/usr/bin/env python
-from setuptools import setup
 import os
+from distutils.core import setup
 
-fp = open(os.path.join(os.path.dirname(__file__), "README.rst"))
-readme_text = fp.read()
-fp.close()
+def find_packages(root):
+    # so we don't depend on setuptools; from the Storm ORM setup.py
+    packages = []
+    for directory, subdirectories, files in os.walk(root):
+        if '__init__.py' in files:
+            packages.append(directory.replace(os.sep, '.'))
+    return packages
+
 
 setup(
-    name='CleverCSS',
-    author='Armin Ronacher',
-    author_email='armin.ronacher@active-4.com',
-    maintainer='David Ziegler',
-    maintainer_email='david.ziegler@gmail.com',
+    name = 'CleverCSS',
+    author = 'Armin Ronacher',
+    maintainer = 'David Ziegler',
     version='0.2.dev',
-    url='http://sandbox.pocoo.org/clevercss/',
-    download_url='http://github.com/dziegler/clevercss/tree',
-    py_modules=['clevercss'],
     description='python inspired sass-like css preprocessor',
-    long_description=readme_text,
+    author = 'Kevin Williams',
+    author_email = 'kevin@isolationism.com',
+    license = 'BSD',
+    url = 'https://github.com/isolationism/clevercss',
+    py_modules=['clevercss'],
     classifiers=[
         'License :: OSI Approved :: BSD License',
         'Programming Language :: Python'
     ],
     test_suite = 'tests.all_tests',
+    download_url='http://github.com/isolationism/clevercss/tree',
+    packages = find_packages('clevercss'),
 )
+

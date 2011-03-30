@@ -1,4 +1,6 @@
 include README.rst
-include setup.py
-recursive-include codetalker *.py
-recursive-include tests *.py
+include MANIFEST.in
+include eigen.css
+include sprites_format.txt
+include extract_sprites.py
+include-recursive tests
