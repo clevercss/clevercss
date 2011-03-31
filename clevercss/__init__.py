@@ -245,7 +245,7 @@ import utils
 import expressions
 import engine
 
-VERSION = '0.2'
+VERSION = '0.2.dev'
 
 class Context(dict):
     def __init__(self, *args, **kwargs):
@@ -259,6 +259,6 @@ def convert(source, context=None, fname=None, minified=False):
     context.minified = minified
     return engine.Engine(source, fname=fname).to_css(context)
 
-__all__ = ['convert']
+__all__ = ['convert', 'VERSION', '__doc__']
 
 # vim: et sw=4 sts=4

@@ -1,31 +1,36 @@
 #!/usr/bin/env python
+from setuptools import setup
 import os
-from distutils.core import setup
+from sys import version_info
 
-def find_packages(root):
-    # so we don't depend on setuptools; from the Storm ORM setup.py
-    packages = []
-    for directory, subdirectories, files in os.walk(root):
-        if '__init__.py' in files:
-            packages.append(directory.replace(os.sep, '.'))
-    return packages
+fp = open(os.path.join(os.path.dirname(__file__), "README.rst"))
+readme_text = fp.read()
+fp.close()
 
+req_modules = ['cssutils']
+if version_info[0] == 2 and version_info[1] < 7:
+    req_modules.append('ordereddict')
 
 setup(
-    name = 'CleverCSS',
-    author = 'Armin Ronacher',
-    maintainer = 'David Ziegler',
-    version='0.2.dev',
+    name='CleverCSS',
+    author='Armin Ronacher',
+    author_email='armin.ronacher@active-4.com',
+    maintainer='David Ziegler',
+    maintainer_email='david.ziegler@gmail.com',
+    version='0.3',
+    url='http://sandbox.pocoo.org/clevercss/',
+    download_url='https://github.com/guileen/clevercss3/tree',
+    py_modules=['extract_sprites'],
+    packages=['clevercss'],
     description='python inspired sass-like css preprocessor',
-    license = 'BSD',
-    url = 'https://github.com/isolationism/clevercss',
-    py_modules=['clevercss'],
+    long_description=readme_text,
+    install_requires = req_modules,
+    entry_points = {
+        'console_scripts': ['ccss = clevercss.ccss:main']
+    },
     classifiers=[
         'License :: OSI Approved :: BSD License',
         'Programming Language :: Python'
     ],
     test_suite = 'tests.all_tests',
-    download_url='http://github.com/isolationism/clevercss/tree',
-    packages = find_packages('clevercss'),
 )
-

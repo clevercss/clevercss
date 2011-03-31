@@ -4,27 +4,27 @@ from optparse import OptionParser
 import re
 import sys
 
-import clevercss
-from clevercss.errors import *
+from . import *
+from errors import *
 
 help_text = '''
 usage: %prog <file 1> ... <file n>
-  if called with some filenames it will read each file, cut of
-  the extension and append a ".css" extension and save. If 
-  the target file has the same name as the source file it will
-  abort, but if it overrides a file during this process it will
-  continue. This is a desired functionality. To avoid that you
-  must not give your source file a .css extension.
+if called with some filenames it will read each file, cut of
+the extension and append a ".css" extension and save. If
+the target file has the same name as the source file it will
+abort, but if it overrides a file during this process it will
+continue. This is a desired functionality. To avoid that you
+must not give your source file a .css extension.
 
-  if you call it without arguments it will read from stdin and
-  write the converted css to stdout.
+if you call it without arguments it will read from stdin and
+write the converted css to stdout.
 '''
 
 version_text = '''\
 CleverCSS Version %s
 Licensed under the BSD license.
 (c) Copyright 2007 by Armin Ronacher and Georg Brandl
-(c) Copyright 2010 by Jared Forsyth''' % clevercss.VERSION
+(c) Copyright 2010 by Jared Forsyth''' % VERSION
 
 def main():
     parser = OptionParser(usage=help_text, version=version_text)
@@ -74,13 +74,13 @@ def parseCSS(text):
     return rules
 
 def rulesToCCSS(selector, rules):
-    text = selector + ':\n  '
+    text = selector + ':\n '
     if rules.get(':rules:'):
-        text += '\n\n  '.join('\n  '.join(line.strip().rstrip(';') for line in rule.style.cssText.splitlines()) for rule in rules.get(':rules:', [])) + '\n'
+        text += '\n\n '.join('\n '.join(line.strip().rstrip(';') for line in rule.style.cssText.splitlines()) for rule in rules.get(':rules:', [])) + '\n'
     for other in rules:
         if other == ':rules:':
             continue
-        text += '\n  ' + rulesToCCSS(other, rules[other]).replace('\n', '\n  ')
+        text += '\n ' + rulesToCCSS(other, rules[other]).replace('\n', '\n ')
     return text
 
 def cleverfy(fname):
@@ -92,19 +92,19 @@ def cleverfy(fname):
 
 def do_test():
     rx = re.compile(r'Example::\n(.*?)__END__(?ms)')
-    text = rx.search(clevercss.__doc__).group(1)
+    text = rx.search(__doc__).group(1)
     ccss = '\n'.join(line[8:].rstrip() for line in text.splitlines())
-    return clevercss.convert(ccss)
+    return convert(ccss)
 
 def list_colors():
-    print '%d known colors:' % len(clevercss.consts.COLORS)
-    for color in sorted(clevercss.consts.COLORS.items()):
-        print '  %-30s%s' % color
+    print '%d known colors:' % len(consts.COLORS)
+    for color in sorted(consts.COLORS.items()):
+        print ' %-30s%s' % color
 
 def convert_stream():
     import sys
     try:
-        print clevercss.convert(sys.stdin.read())
+        print convert(sys.stdin.read())
     except (ParserError, EvalException), e:
         sys.stderr.write('Error: %s\n' % e)
         sys.exit(1)
@@ -123,10 +123,14 @@ def convert_many(files, options):
         src = open(fname)
         try:
             try:
-                converted = clevercss.convert(src.read(), fname=fname)
+                converted = convert(src.read(), fname=fname)
             except (ParserError, EvalException), e:
                 sys.stderr.write('Error in file %s: %s\n' % (fname, e))
                 sys.exit(1)
+            if options.minified:
+                css = cssutils.CSSParser().parseString(converted)
+                cssutils.ser.prefs.useMinified()
+                converted = css.cssText
             dst = open(target, 'w')
             try:
                 print 'Writing output to %s...' % target

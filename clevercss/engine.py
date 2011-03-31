@@ -3,6 +3,11 @@
 import re
 import colorsys
 import operator
+from sys import version_info
+if version_info[0] == 2 and version_info[1] >= 7:
+    from collections import OrderedDict
+else:
+    from ordereddict import OrderedDict
 
 import consts
 import utils
@@ -109,7 +114,7 @@ class Parser(object):
         """
         rule = (None, [], [])
         vars = {}
-        imports = {}
+        imports = OrderedDict({})
         indention_stack = [0]
         state_stack = ['root']
         group_block_stack = []
@@ -219,8 +224,11 @@ class Parser(object):
                         if url in imports:
                             fail('file "%s" imported twice' % url)
                         # Use absolute paths to allow cross-directory execution
-                        absdir = os.path.dirname(os.path.abspath(self.fname))
-                        absurl = os.path.join(absdir, url)
+                        if self.fname:
+                            absdir = os.path.dirname(os.path.abspath(self.fname))
+                            absurl = os.path.join(absdir, url)
+                        else:
+                            absurl = url
                         if not os.path.isfile(absurl):
                             fail('file "%s" was not found' % absurl)
                         imports[absurl] = (lineiter.lineno, open(absurl).read())

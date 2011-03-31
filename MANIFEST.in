@@ -1,6 +1,4 @@
 include README.rst
-include MANIFEST.in
 include eigen.css
 include sprites_format.txt
-include extract_sprites.py
-include-recursive tests
+recursive-include tests *.py
