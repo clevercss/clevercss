@@ -4,8 +4,8 @@ from optparse import OptionParser
 import re
 import sys
 
-from . import *
-from errors import *
+import clevercss
+from clevercss.errors import *
 
 help_text = '''
 usage: %prog <file 1> ... <file n>

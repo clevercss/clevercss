@@ -1292,7 +1292,10 @@ class Sprite(Expr):
     }
 
     def __init__(self, spritemap, name, lineno=None):
-        self.lineno = lineno if lineno else name.lineno
+        if lineno:
+            self.lineno = lineno
+        else:
+            self.lineno = name.lineno
         self.name = name
         self.spritemap = spritemap
         self.spritemap.annotate_used(self)
