@@ -43,9 +43,9 @@ def tint_color(color, context, lighten=None):
     """Specifies a relative value by which to lighten the color (e.g. toward
     white). This works in the opposite manner to the brighten function; a
     value of 0% produces white (no ink); a value of 50% produces a color
-    halfway between the original and white (e.g. 50% halftone). N.B. that less
-    ink also means lower saturation, which decreases linearly with the
-    darkness of the ink. Only positive values for tints are allowed; if you
+    halfway between the original and white (e.g. 50% halftone). Less
+    ink also means colour saturation decreases linearly with the amount of
+    ink used. Only positive values between 0-100 for tints are allowed; if you
     wish to darken an existing color use the darken method or shade_color.
 
     N.B. real printing presses -- and therefore some software -- may produce
@@ -136,6 +136,72 @@ def shade_color(color, context, values=None):
         snew = savail + (savail * (saturation / 100))
 
     return expressions.Color(hsv_to_rgb(hue, snew, lnew))
+
+
+def mix_color(color, context, values=None):
+    """
+    For design purposes, related colours that share the same hue are created
+    in one of two manners: They are either a result of lightening or darkening
+    the original colour by some amount, or represent a mix between an original
+    value and some other colour value.
+
+    In the case of print, the latter is most frequently explicitly employed as
+    a "tint", which is produced using a screen of the original colour against
+    the paper background (which is nominally -- although not necessarily --
+    white); see http://en.wikipedia.org/wiki/Tints_and_shades.
+
+    Since many web page designs choose to emulate paper and adopt a white
+    background, in many cases the tint function behaves as expected. However,
+    in cases where a page (or related) background colour may not necessarily
+    be white, a much more intuitive means of driving a new color is by mixing
+    two colours together in a certain proportion, which is what this function
+    does.
+
+    Mixing black with white using an amount of 0% produces black (the original
+    colour); an amount of 100% with the same colours produces white (mixcolour),
+    and an amount of 50% produces a medium grey.
+
+    Note that operations are done in the RGB color space which seems to be
+    both easiest and most predictable for
+    """
+    if values is None:
+        return color
+    items = []
+    try:
+        for val in values:
+            items.append(val)
+    except TypeError:
+        raise IndexError, "Two arguments are required to mix: a (second) "\
+                          "color and a percentage"
+
+    if len(items) != 2:
+        raise IndexError, "Exactly two arguments are required to mix: "\
+                          "a (second) color and a percentage"
+    else:
+        amount = abs(items[0].value)
+        mixcolor = items[1]
+
+    # Evaluate mixcolor if it's a variable.
+    if isinstance(mixcolor, expressions.Var):
+        mixcolor = mixcolor.evaluate(context)
+
+    if amount == 100:
+        return mixcolor
+    if amount == 0:
+        return color
+
+    # Express amount as a decimal
+    amount /= 100.0
+
+    r1, g1, b1 = color.value
+    r2, g2, b2 = mixcolor.value
+
+    rnew = ((r1 * (1-amount)) + (r2 * amount))
+    gnew = ((g1 * (1-amount)) + (g2 * amount))
+    bnew = ((b1 * (1-amount)) + (b2 * amount))
+
+    return expressions.Color((rnew, gnew, bnew))
+
 
 def number_repr(value):
     """

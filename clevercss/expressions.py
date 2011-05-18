@@ -309,6 +309,7 @@ class Color(Literal):
         'darken':   utils.darken_color,
         'tint':     utils.tint_color,
         'shade':    utils.shade_color,
+        'mix':      utils.mix_color,
         'hex':      lambda x, c: Color(x.value, x.lineno)
     }
 
