@@ -245,7 +245,7 @@ import utils
 import expressions
 import engine
 
-VERSION = '0.2.1.dev'
+VERSION = '0.2.2.dev'
 
 class Context(dict):
     def __init__(self, *args, **kwargs):
