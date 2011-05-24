@@ -17,7 +17,7 @@ setup(
     author_email='armin.ronacher@active-4.com',
     maintainer='David Ziegler',
     maintainer_email='david.ziegler@gmail.com',
-    version='0.2.1.dev',
+    version='0.2.2.dev',
     url='http://sandbox.pocoo.org/clevercss/',
     download_url='https://github.com/guileen/clevercss3/tree',
     py_modules=['extract_sprites'],
