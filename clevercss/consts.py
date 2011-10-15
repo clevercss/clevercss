@@ -5,7 +5,7 @@ import re
 OPERATORS = ['+', '-', '*', '/', '%', '(', ')', ';', ',']
 
 # units and conversions
-UNITS = ['em', 'ex', 'px', 'cm', 'mm', 'in', 'pt', 'pc', 'deg', 'rad'
+UNITS = ['em', 'ex', 'rem', 'px', 'cm', 'mm', 'in', 'pt', 'pc', 'deg', 'rad'
           'grad', 'ms', 's', 'Hz', 'kHz', '%']
 CONV = {
     'length': {
