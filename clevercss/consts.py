@@ -202,4 +202,14 @@ regex = {
                     r'\{([a-zA-Z_][a-zA-Z0-9_]*)\})'),
     'call': re.compile(r'\.' + r_call)
 }
+
+browser_specific_expansions = {
+    'transition-property': ['moz', 'webkit'],
+    'transition-duration': ['moz', 'webkit'],
+    'transition-timing-function': ['moz', 'webkit'],
+    'transition-delay': ['moz', 'webkit'],
+
+    'box-sizing': ['moz', 'webkit'],
+}
+
 # vim: et sw=4 sts=4

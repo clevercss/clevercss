@@ -49,8 +49,17 @@ class Engine(object):
             yield selectors, defs
 
         for selectors, defs in self.rules:
-            yield selectors, [(key, expr.to_string(context))
-                              for key, expr in defs]
+            all_defs = []
+            for key, expr in defs:
+                string_expr = expr.to_string(context)
+                try:
+                    prefixes = consts.browser_specific_expansions[key]
+                except KeyError:
+                    all_defs.append((key, string_expr))
+                else:
+                    for prefix in prefixes:
+                        all_defs.append(('-%s-%s' % (prefix, key), string_expr))
+            yield selectors, all_defs
 
     def to_css(self, context=None):
         """Evaluate the code and generate a CSS file."""
@@ -130,10 +139,10 @@ class Parser(object):
 
         def parse_definition():
             m = consts.regex['macros_call'].search(line)
-            if not m is None:
+            if m is not None:
                 return lineiter.lineno, '__macros_call__', m.groups()[0]
             m = consts.regex['def'].search(line)
-            if not m is None:
+            if m is not None:
                 return lineiter.lineno, m.group(1), m.group(2)
             fail('invalid syntax for style definition')
 
