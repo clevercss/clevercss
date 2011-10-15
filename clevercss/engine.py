@@ -45,10 +45,10 @@ class Engine(object):
 
         # pull in imports
         for fname, source in self._imports.iteritems():
-          for selectors, defs in Engine(source[1], fname=fname).evaluate(context):
-            yield selectors, defs
+          for media, selectors, defs in Engine(source[1], fname=fname).evaluate(context):
+            yield media, selectors, defs
 
-        for selectors, defs in self.rules:
+        for media, selectors, defs in self.rules:
             all_defs = []
             for key, expr in defs:
                 string_expr = expr.to_string(context)
@@ -59,20 +59,28 @@ class Engine(object):
                 else:
                     for prefix in prefixes:
                         all_defs.append(('-%s-%s' % (prefix, key), string_expr))
-            yield selectors, all_defs
+            yield media, selectors, all_defs
 
     def to_css(self, context=None):
         """Evaluate the code and generate a CSS file."""
         if context.minified:
             return self.to_css_min(context)
         blocks = []
-        for selectors, defs in self.evaluate(context):
+        current_media = None
+        for media, selectors, defs in self.evaluate(context):
             block = []
+            if media != current_media:
+                if current_media:
+                    block.append('} /* @ media %s */\n\n' % media)
+                block.append('@media %s {\n' % media)
+                current_media = media
             block.append(u',\n'.join(selectors) + ' {')
             for key, value in defs:
                 block.append(u'  %s: %s;' % (key, value))
             block.append('}')
             blocks.append(u'\n'.join(block))
+        if current_media:
+            blocks.append('} /* @ media %s */' % current_media)
         return u'\n\n'.join(blocks)
 
     def to_css_min(self, context=None):
@@ -80,7 +88,7 @@ class Engine(object):
         return u''.join(u'%s{%s}' % (
                 u','.join(s),
                 u';'.join(u'%s:%s' % kv for kv in d))
-            for s, d in self.evaluate(context))
+            for m, s, d in self.evaluate(context))
 
 class TokenStream(object):
     """
@@ -289,18 +297,22 @@ class Parser(object):
                             styles.extend(expand_defs(macros_defs))
                         else:
                             styles.append(expand_def((lineno, k, v)))
-                    result.append((get_selectors(), styles))
+                    result.append((media[0], get_selectors(), styles))
                 for i_r, i_c, i_d in children:
                     handle_rule(i_r, i_c, i_d, macroses)
 
             local_rules = []
             reference_rules = []
-            for r in rule.split(','):
-                r = r.strip()
-                if '&' in r:
-                    reference_rules.append(r)
-                else:
-                    local_rules.append(r)
+            if rule.startswith('@media '):
+                media[:] = rule.split(None, 1)[1:]
+                recurse(macroses)
+            else:
+                for r in rule.split(','):
+                    r = r.strip()
+                    if '&' in r:
+                        reference_rules.append(r)
+                    else:
+                        local_rules.append(r)
 
             if local_rules:
                 stack.append(local_rules)
@@ -337,6 +349,7 @@ class Parser(object):
         root_rules, vars, imports, macroses = self.preparse(source)
         result = []
         stack = []
+        media = [None]
         for i_r, i_c, i_d in root_rules:
             handle_rule(i_r, i_c, i_d, macroses)
 
