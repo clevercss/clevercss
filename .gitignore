@@ -1,6 +1,4 @@
 *.pyc
-<<<<<<< HEAD
-=======
 *.vim.sess
 *.pyo
 *.swp
@@ -9,4 +7,3 @@ CleverCSS.egg-info
 build
 dist
 MANIFEST
->>>>>>> jabapyth/master
