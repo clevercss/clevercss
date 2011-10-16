@@ -224,7 +224,7 @@ class Number(Literal):
         return Number(-self.value)
 
     def to_string(self, context):
-        return utils.number_repr(self.value)
+        return utils.number_repr(self.value, context)
 
 class Value(Literal):
     name = 'value'
@@ -299,7 +299,7 @@ class Value(Literal):
         return Value(-self.value, self.unit, lineno=self.lineno)
 
     def to_string(self, context):
-        return utils.number_repr(self.value) + self.unit
+        return utils.number_repr(self.value, context) + self.unit
 
 class Color(Literal):
     name = 'color'

@@ -203,17 +203,20 @@ def mix_color(color, context, values=None):
     return expressions.Color((rnew, gnew, bnew))
 
 
-def number_repr(value):
+def number_repr(value, context):
     """
     CleverCSS uses floats internally.  To keep the string representation
     of the numbers small cut off the places if this is possible without
-    loosing much information.
+    losing much information.
     """
     value = unicode(value)
-    parts = value.rsplit('.')
-    if len(parts) == 2 and parts[-1] == '0':
-        return parts[0]
-    return value
+    integer, dot, fraction = value.partition('.')
+    if dot and fraction == '0':
+        return integer
+    elif context.minified:
+        return value.lstrip('0')
+    else:
+        return value
 
 
 def rgb_to_hls(red, green, blue):
