@@ -68,19 +68,24 @@ class Engine(object):
         blocks = []
         current_media = None
         for media, selectors, defs in self.evaluate(context):
+            if media:
+                indent = '  '
+            else:
+                indent = ''
             block = []
             if media != current_media:
                 if current_media:
-                    block.append('} /* @ media %s */\n\n' % current_media)
-                block.append('@media %s {\n' % media)
+                    block.append('}\n\n')
+                if media:
+                    block.append('@media %s {\n' % media)
                 current_media = media
-            block.append(u',\n'.join(selectors) + ' {')
+            block.append(indent + u',\n'.join(selectors) + ' {')
             for key, value in defs:
-                block.append(u'  %s: %s;' % (key, value))
-            block.append('}')
+                block.append(indent + u'  %s: %s;' % (key, value))
+            block.append(indent + u'}')
             blocks.append(u'\n'.join(block))
         if current_media:
-            blocks.append('} /* @ media %s */' % current_media)
+            blocks.append('}')
         return u'\n\n'.join(blocks)
 
     def to_css_min(self, context=None):
@@ -297,14 +302,14 @@ class Parser(object):
                             styles.extend(expand_defs(macros_defs))
                         else:
                             styles.append(expand_def((lineno, k, v)))
-                    result.append((media[0], get_selectors(), styles))
+                    result.append((media[-1], get_selectors(), styles))
                 for i_r, i_c, i_d in children:
                     handle_rule(i_r, i_c, i_d, macroses)
 
             local_rules = []
             reference_rules = []
             if rule.startswith('@media '):
-                media[:] = rule.split(None, 1)[1:]
+                media.append(rule.split(None, 1)[1])
                 recurse(macroses)
             else:
                 for r in rule.split(','):
@@ -335,6 +340,9 @@ class Parser(object):
                 stack.pop()
                 if push_back:
                     stack.append(parent_rules)
+
+            if rule.startswith('@media '):
+                del media[-1]
 
         def get_selectors():
             branches = [()]
