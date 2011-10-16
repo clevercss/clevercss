@@ -104,7 +104,21 @@ class Engine(object):
                     u';'.join(u'%s:%s' % kv for kv in defs))))
         if current_media:
             parts.append('}')
-        return ''.join(parts)
+        result = ''.join(parts)
+
+        # Some browsers/editors choke on extremely long lines.
+        # Output lines of 2000 characters or more, broken after a closing brace
+        lines = []
+        try:
+            while True:
+                split_index = result.index('}', 2000) + 1
+                lines.append(result[:split_index])
+                result = result[split_index:]
+        except ValueError:
+            pass
+        lines.append(result)
+
+        return '\n'.join(lines)
 
 class TokenStream(object):
     """
