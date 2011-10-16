@@ -152,7 +152,7 @@ recent CSS version, but most of the data types are supported:
     examples.  Note that ``23px`` is not a number.  We refer to this as a value.
 
 **Values**
-    Numbers with a unit suffix are called values.  They behave different when
+    Numbers with a unit suffix are called values.  They behave differently when
     used in arithmetic expressions.
 
 **Colors**
@@ -180,6 +180,10 @@ recent CSS version, but most of the data types are supported:
         =
 
     Especially the last one might surprise you.
+
+**URLs**
+    URLs work like strings, the only difference is that the syntax looks
+    like ``url(...)``.
 
 
 Rules and Selectors
@@ -318,6 +322,26 @@ And you'll get what you expected::
     } /* @media print */
 
 
+Spritemaps
+----------
+
+Commonly in CSS, you'll have an image of all your UI elements, and then use
+background positioning to extract a part of that image. CleverCSS helps you
+with this, via the `spritemap(fn)` call. For example::
+
+    ui = spritemap('ui.sprites')
+    some_button = $ui.sprite('some_button.png')
+    other_button = $ui.sprite('other_button.png')
+
+    div.some_button:
+        background: $some_button
+
+    div.other_button:
+        background: $other_button
+        width: $other_button.width()
+        height: $other_button.height()
+
+
 Attributes
 ----------
 
@@ -340,15 +364,15 @@ This code will generate the following CSS::
     }
 
 
-Constants
+Variables
 ---------
 
-CleverCSS allows you to define stylesheet-wide constants from both within your
-stylesheet, and the Python code if executed from a custom script.  But constants
-defined in the stylesheet will always override constants supplied from the
+CleverCSS allows you to define stylesheet-wide variables from both within your
+stylesheet, and the Python code if executed from a custom script.  But variables
+defined in the stylesheet will always override variables supplied from the
 python code.
 
-You can define constants at top level using the equals sign, and use them in
+You can define variables at top level using the equals sign, and use them in
 attributes by prefixing it with a dollar sign::
 
     background_color = #ccc
@@ -356,10 +380,10 @@ attributes by prefixing it with a dollar sign::
     #main:
       background-color: $background_color
 
-One important thing is that constants don't work like Python variables.  When a
-constant is assigned, CleverCSS will not evaluate it but store the expression.
-Thus you can reference variables in a variable definition that don't exist
-"yet"::
+One important thing is that CleverCSS variables don't work like Python
+variables.  When a variable is assigned, CleverCSS will not evaluate it but
+store the expression. Thus you can reference variables in a variable definition
+that don't exist "yet"::
 
     foo = $bar
     bar = 42
@@ -383,6 +407,11 @@ Will result in (assuming $foo is 10)::
 
     padding: 15 8;
 
+This however can lead to code that is harder to read, so in this situation it's
+recommended to parentize the expressions::
+
+    padding: ($foo + 2 + 3) ($foo - 2)
+
 Concatenated expressions have a lower priority than lists, so this works too::
 
     font-family: Verdana, Times New Roman, sans-serif
@@ -395,8 +424,30 @@ Arithmetic
 
 CleverCSS has a limited understanding of the values it is dealing with.  That
 allows it to perform some mathematical operations on it.  CleverCSS recognizes
-the following operators: ``+``, ``-``, ``*``, ``/`` and ``%``.  Additionally you
-can use parentheses to group and override the default operator priorities.
+the following operators:
+
+**``+``**
+    add two numbers, a number and a value or two compatible
+    values (for example ``1cm + 12mm``).  This also works as
+    concatenate operator for strings.  Using this operator
+    on color objects allows some basic color composition.
+
+**``-``**
+    subtract one number from another, a number from a value
+    or a value from a compatible one.  Like the plus operator
+    this also works on colors.
+
+**``*``**
+    Multiply numbers, numbers with a value.  Multiplying a string
+    repeats it. (eg: ``= * 5`` gives '=====')
+
+**``/``**
+    divide a number or value by a number.
+
+**``%``**
+    do a modulo division on a number or value by a number.
+
+You can use parentheses to group and override the default operator priorities.
 
 If all your operands are numbers the return value will be a number too, for all
 for those operators.  If you want to calculate with numbers and values the
@@ -419,7 +470,7 @@ below::
     foo + bar                   -> foobar
     "blub blah" + "baz"         -> 'blub blahbaz'
 
-You can also calculate with numbers::
+You can also calculate with colors::
 
     #fff - #ccc                 -> #333333
     cornflowerblue - coral      -> #00169d
@@ -428,6 +479,15 @@ You can also add or subtract a number from it and it will do so for all three
 channels (red, green, blue)::
 
     crimson - 20                -> #c80028
+
+Keep in mind that whitespace matters. For example ``20% 10`` is something
+completely different than ``20 % 10``. The first one is an implicit
+concatenation expression with the values 20% and 10, the second one a
+modulo epression.  The same applies to ``no-wrap`` versus ``no - wrap``
+and others.
+
+Additionally there are two operators used to keep list items apart. The
+comma (``,``) and semicolon (``;``) operator both keep list items apart.
 
 
 Methods
@@ -517,3 +577,6 @@ If you want to use it from the shell, you can use the `bin/ccss` script.
 For usage help use this command::
 
     ccss --help
+
+:copyright: Copyright 2007 by Armin Ronacher, Georg Brandl.
+:license: BSD License

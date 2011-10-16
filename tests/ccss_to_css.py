@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import os
 import unittest
 from magictest import MagicTest as TestCase
 
@@ -10,10 +11,8 @@ from clevercss import convert
 from clevercss.line_iterator import LineIterator
 
 def eigen_test():
-    import re
-    rx = re.compile(r'Example::\n(.*?)__END__(?ms)')
-    text = rx.search(clevercss.__doc__).group(1)
-    ccss = '\n'.join(line[8:].rstrip() for line in text.splitlines())
+    filename = os.path.join(os.path.dirname(__file__), 'eigentest.ccss')
+    ccss = open(filename).read()
     return clevercss.convert(ccss)
 
 class ConvertTestCase(TestCase):
