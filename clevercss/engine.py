@@ -71,7 +71,7 @@ class Engine(object):
             block = []
             if media != current_media:
                 if current_media:
-                    block.append('} /* @ media %s */\n\n' % media)
+                    block.append('} /* @ media %s */\n\n' % current_media)
                 block.append('@media %s {\n' % media)
                 current_media = media
             block.append(u',\n'.join(selectors) + ' {')
