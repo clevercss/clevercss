@@ -190,7 +190,7 @@ class MediaTypeTestCase(TestCase):
                 text-decoration:none}
             }
             a{
-                color:#f00}
+                color:red}
             @media handheld{
                 td{
                     background-color:green}

@@ -353,10 +353,19 @@ class Color(Literal):
         return Literal.div(self, other, context)
 
     def to_string(self, context):
-        if context.minified and all(x >> 4 == x & 15 for x in self.value):
-            return '#%x%x%x' % tuple(x & 15 for x in self.value)
         code = '#%02x%02x%02x' % self.value
-        return self.from_name and consts.REV_COLORS.get(code) or code
+        if not context.minified:
+            return self.from_name and consts.REV_COLORS.get(code) or code
+        else:
+            if all(x >> 4 == x & 15 for x in self.value):
+                min_code = '#%x%x%x' % tuple(x & 15 for x in self.value)
+            else:
+                min_code = code
+            name = consts.REV_COLORS.get(code)
+            if name and len(name) < len(min_code):
+                return name
+            else:
+                return min_code
 
     def _calc(self, other, method):
         is_number = isinstance(other, Number)
