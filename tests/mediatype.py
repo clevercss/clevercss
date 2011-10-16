@@ -158,9 +158,51 @@ class MediaTypeTestCase(TestCase):
 
             }""")
 
-    def _assertConversion(self, ccss, css):
-        got = convert(dedent(ccss))
+    def test_06_minimal_media_type(self):
+        self._assertConversion(
+            """
+            @media print:
+              #content:
+                background: none
+                @media handheld:
+                  strong:
+                    font-weight: bold
+              a:
+                text-decoration: none
+
+            a:
+                color: red
+
+            @media handheld:
+                td:
+                    background-color: green""",
+            """
+            @media print{
+              #content{
+                background:none}
+            }
+            @media handheld{
+              #content strong{
+                font-weight:bold}
+            }
+            @media print{
+              a{
+                text-decoration:none}
+            }
+            a{
+                color:#f00}
+            @media handheld{
+                td{
+                    background-color:green}
+            }
+            """,
+            minified=True)
+
+    def _assertConversion(self, ccss, css, minified=False):
+        got = convert(dedent(ccss), minified=minified)
         expected = dedent(css).lstrip()
+        if minified:
+            expected = ''.join(line.lstrip(' ') for line in expected.splitlines())
         assert got == expected, '\n' + expected.replace('\n', r'\n') + '\n' + got.replace('\n', r'\n')
 
 def all_tests():

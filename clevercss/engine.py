@@ -90,10 +90,21 @@ class Engine(object):
 
     def to_css_min(self, context=None):
         """Evaluate the code and generate a CSS file."""
-        return u''.join(u'%s{%s}' % (
-                u','.join(s),
-                u';'.join(u'%s:%s' % kv for kv in d))
-            for m, s, d in self.evaluate(context))
+        parts = []
+        current_media = None
+        for media, selectors, defs in self.evaluate(context):
+            if media != current_media:
+                if current_media:
+                    parts.append('}')
+                if media:
+                    parts.append('@media %s{' % media)
+                current_media = media
+            parts.append(u''.join(u'%s{%s}' % (
+                    u','.join(selectors),
+                    u';'.join(u'%s:%s' % kv for kv in defs))))
+        if current_media:
+            parts.append('}')
+        return ''.join(parts)
 
 class TokenStream(object):
     """
