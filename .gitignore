@@ -1,0 +1,9 @@
+*.pyc
+*.vim.sess
+*.pyo
+*.swp
+*.swo
+CleverCSS.egg-info
+build
+dist
+MANIFEST

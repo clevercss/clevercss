@@ -1,0 +1,4 @@
+include README.rst
+include eigen.css
+include sprites_format.txt
+recursive-include tests *.py

@@ -1,0 +1,8 @@
+arg = blue
+
+#test1:
+  color: $arg
+#test2:
+  color: $arg
+#test3:
+  color: $arg
