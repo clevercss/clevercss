@@ -10,6 +10,8 @@ import clevercss
 from clevercss import convert
 from clevercss.line_iterator import LineIterator
 
+from clevercss.errors import *
+
 def eigen_test():
     filename = os.path.join(os.path.dirname(__file__), 'eigentest.ccss')
     ccss = open(filename).read()
@@ -17,11 +19,11 @@ def eigen_test():
 
 class ConvertTestCase(TestCase):
     def convert(self):
-        self.assertEqual(convert('''body: 
-            color: $color 
+        self.assertEqual(convert('''body:
+            color: $color
         ''',{'color':'#eee'}),
         u'body {\n  color: #eeeeee;\n}')
-    
+
     def convert2(self):
         self.assertEqual(convert('''body:
             background-color: $background_color
@@ -122,7 +124,7 @@ class ConvertTestCase(TestCase):
       """
       self.assertEqual(convert(dedent("""
       @import url(tests/example.ccss)
-      
+
       div:
           color: $arg
       """)), dedent("""
@@ -137,11 +139,11 @@ class ConvertTestCase(TestCase):
       #test3 {
         color: blue;
       }
-      
+
       div {
         color: blue;
       }""").strip())
-      
+
 
     def test_multiline_rule(self):
         self.assertEqual(convert(dedent("""
@@ -191,21 +193,31 @@ class MacroTestCase(TestCase):
         }''')
         self.assertEqual(convert(ccss), css)
 
+    def test_undefined_macro(self):
+        ccss = dedent('''
+        body:
+            $simple
+            width:200px
+        .other:
+            $simple
+        ''')
+        self.assertRaises(ParserError, convert, ccss)
+
 class LineIterTestCase(TestCase):
     def test_comments(self):
         line_iter = LineIterator(dedent(
         """
         /* block */
-        /* multiblock 
+        /* multiblock
         */
-                
-        aa, /* comment */bb: 
+
+        aa, /* comment */bb:
             x:1 // comment
-            
+
         """))
         self.assertEqual("\n".join([s[1] for s in line_iter]),
             "aa, bb:\n    x:1")
-    
+
 
 def all_tests():
     return unittest.TestSuite(case.toSuite() for case in [ConvertTestCase, LineIterTestCase, MacroTestCase])
