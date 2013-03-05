@@ -34,7 +34,7 @@ class Engine(object):
         expr = None
         if context is None:
             context = {}
-        elif not isinstance(context, dict): 
+        elif not isinstance(context, dict):
             raise TypeError("context argument must be a dictionary")
 
         for key, value in context.items():
@@ -239,7 +239,7 @@ class Parser(object):
                 # new rule blocks
                 elif line.endswith(','):
                     sub_rules.append(line)
-                                
+
                 elif line.endswith(':'):
                     sub_rules.append(line[:-1].rstrip())
                     s_rule = ' '.join(sub_rules)
@@ -324,7 +324,7 @@ class Parser(object):
                         if k == '__macros_call__':
                             macros_defs = macroses.get(v, None)
                             if macros_defs is None:
-                                fail('No macros with name "%s" is defined' % v)
+                                raise ParserError(lineno, 'No macro with name "%s" is defined' % v)
                             styles.extend(expand_defs(macros_defs))
                         else:
                             styles.append(expand_def((lineno, k, v)))
