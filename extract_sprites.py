@@ -16,5 +16,5 @@ clevercss.convert(open(fname, "U").read(), fname=fname)
 for smap, sprites in clevercss.AnnotatingSpriteMap.all_used_sprites():
     map_name = smap.map_fname.to_string(None)
     sprite_names = " ".join(s.name for s in sprites)
-    print "%s: %s" % (map_name, sprite_names)
+    print("%s: %s" % (map_name, sprite_names))
 

@@ -1,7 +1,7 @@
 import unittest
 from unittest import TestCase, main
 from textwrap import dedent
-from magictest import MagicTest as TestCase
+from tests.magictest import MagicTest as TestCase
 
 from clevercss import convert
 

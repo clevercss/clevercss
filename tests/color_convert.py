@@ -2,9 +2,9 @@
 
 import unittest
 from unittest import main
-from magictest import MagicTest as TestCase
+from tests.magictest import MagicTest as TestCase
 
-from clevercss.utils import rgb_to_hls
+from clevercss.utils import rgb_to_hls, hls_to_rgb
 
 class RgbToHlsTestCase(TestCase):
 
@@ -23,8 +23,6 @@ class RgbToHlsTestCase(TestCase):
     def _assertEqualHLS(self, got, expected):
         self.assertEqual([round(x, 4) for x in got],
                          [round(x, 4) for x in expected])
-
-from clevercss.utils import hls_to_rgb
 
 class HlsToRgbTestCase(TestCase):
     def hls_to_rgb(self):
@@ -45,7 +43,7 @@ class HlsToRgbTestCase(TestCase):
 
 class HlsRgbFuzzyTestCase(TestCase):
     def hls_to_rgb_and_back_fuzzy(self):
-        for i in xrange(100):
+        for i in range(100):
             self._do_fuzzy()
 
     def _do_fuzzy(self):

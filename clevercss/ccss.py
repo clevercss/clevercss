@@ -41,12 +41,12 @@ def main():
 
     (options, args) = parser.parse_args()
     if options.eigen_test:
-        print do_test()
+        print(do_test())
     elif options.list_colors:
         list_colors()
     elif options.to_ccss:
         for arg in args:
-            print cleverfy(arg)
+            print(cleverfy(arg))
     elif len(args):
         convert_many(args, options)
     else:
@@ -97,15 +97,15 @@ def do_test():
     return clevercss.convert(ccss)
 
 def list_colors():
-    print '%d known colors:' % len(clevercss.consts.COLORS)
+    print('%d known colors:' % len(clevercss.consts.COLORS))
     for color in sorted(clevercss.consts.COLORS.items()):
-        print ' %-30s%s' % color
+        print(' %-30s%s' % color)
 
 def convert_stream():
     import sys
     try:
-        print clevercss.convert(sys.stdin.read())
-    except (ParserError, EvalException), e:
+        print(clevercss.convert(sys.stdin.read()))
+    except (ParserError, EvalException) as e:
         sys.stderr.write('Error: %s\n' % e)
         sys.exit(1)
 
@@ -124,7 +124,7 @@ def convert_many(files, options):
         try:
             try:
                 converted = clevercss.convert(src.read(), fname=fname)
-            except (ParserError, EvalException), e:
+            except (ParserError, EvalException) as e:
                 sys.stderr.write('Error in file %s: %s\n' % (fname, e))
                 sys.exit(1)
             if options.minified:
@@ -133,7 +133,7 @@ def convert_many(files, options):
                 converted = css.cssText
             dst = open(target, 'w')
             try:
-                print 'Writing output to %s...' % target
+                print('Writing output to %s...' % target)
                 dst.write(converted)
             finally:
                 dst.close()

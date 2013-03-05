@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-import consts
-import utils
+from clevercss import consts
+from clevercss import utils
 
 class LineIterator(object):
     """
@@ -42,7 +42,7 @@ class LineIterator(object):
         """Read the next non empty line.  This strips line comments."""
         line = ''
         while not line.strip():
-            line += consts.regex['line_comment'].sub('', self._lineiter.next()).rstrip()
+            line += consts.regex['line_comment'].sub('', next(self._lineiter)).rstrip()
             self.lineno += 1
         return line
 
@@ -73,7 +73,7 @@ class LineIterator(object):
             raise ParserError(self.lineno, 'missing end of multiline comment')
         return start_lineno, stripped_line
 
-    def next(self):
+    def __next__(self):
         """
         Get the next line without multiline comments and emit the
         endmarker if we reached the end of the sourcecode and endmarkers
@@ -89,6 +89,7 @@ class LineIterator(object):
                 self.emit_endmarker = False
                 return self.lineno, '__END__'
             raise
+    next = __next__
 
 
 # vim: et sw=4 sts=4

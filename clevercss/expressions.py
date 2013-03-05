@@ -2,10 +2,10 @@
 
 import os
 
-import utils
+from clevercss import utils
 import operator
-import consts
-from errors import *
+from clevercss import consts
+from clevercss.errors import *
 
 class Expr(object):
     """
@@ -68,7 +68,7 @@ class Expr(object):
         return '%s(%s)' % (
             self.__class__.__name__,
             ', '.join('%s=%r' % item for item in
-                      self.__dict__.iteritems())
+                      self.__dict__.items())
         )
 
 
@@ -155,7 +155,7 @@ class Literal(Expr):
         self.value = value
 
     def to_string(self, context):
-        rv = unicode(self.value)
+        rv = str(self.value)
         if len(rv.split(None, 1)) > 1:
             return u"'%s'" % rv.replace('\\', '\\\\') \
                                .replace('\n', '\\\n') \
@@ -304,18 +304,217 @@ class Value(Literal):
 class Color(Literal):
     name = 'color'
 
+    def brighten(self, context, amount=None):
+        if amount is None:
+            amount = Value(10.0, '%')
+        hue, lightness, saturation = utils.rgb_to_hls(*self.value)
+        if isinstance(amount, Value):
+            if amount.unit == '%':
+                if not amount.value:
+                    return self
+                lightness *= 1.0 + amount.value / 100.0
+            else:
+                raise errors.EvalException(self.lineno, 'invalid unit %s for color '
+                                    'calculations.' % amount.unit)
+        elif isinstance(amount, Number):
+            lightness += (amount.value / 100.0)
+        if lightness > 1:
+            lightness = 1.0
+        return Color(utils.hls_to_rgb(hue, lightness, saturation))
+
+    def darken(self, context, amount=None):
+        if amount is None:
+            amount = Value(10.0, '%')
+        hue, lightness, saturation = utils.rgb_to_hls(*self.value)
+        if isinstance(amount, Value):
+            if amount.unit == '%':
+                if not amount.value:
+                    return self
+                lightness *= amount.value / 100.0
+            else:
+                raise errors.EvalException(self.lineno, 'invalid unit %s for color '
+                                    'calculations.' % amount.unit)
+        elif isinstance(amount, Number):
+            lightness -= (amount.value / 100.0)
+        if lightness < 0:
+            lightness = 0.0
+        return Color(utils.hls_to_rgb(hue, lightness, saturation))
+
+    def tint(self, context, lighten=None):
+        """Specifies a relative value by which to lighten the color (e.g. toward
+        white). This works in the opposite manner to the brighten function; a
+        value of 0% produces white (no ink); a value of 50% produces a color
+        halfway between the original and white (e.g. 50% halftone). Less
+        ink also means colour saturation decreases linearly with the amount of
+        ink used. Only positive values between 0-100 for tints are allowed; if you
+        wish to darken an existing color use the darken method or shade_color.
+
+        N.B. real printing presses -- and therefore some software -- may produce
+        slightly different saturations at different tone curves. If you're really,
+        REALLY anal about the colour that gets reproduced, you should probably
+        trust your design software. For most intents and purposes, though, this
+        is going to be more than sufficient.
+
+        Valueless tints will be returned unmodified.
+        """
+        if lighten is None:
+            return self
+        elif isinstance(lighten, (Value, Number)):
+            lighten = lighten.value
+        lighten = abs(lighten) # Positive values only!
+
+        hue, lit, sat = utils.rgb_to_hls(*self.value)
+
+        # Calculate relative lightness
+        lavail = 1.0 - lit
+        lused = lavail - (lavail * (lighten / 100))
+        lnew = lused + (1.0 - lavail)
+
+        # Corresponding relative (de-)saturation
+        if lit == 0:
+            lit = 1
+        snew = sat * (1 / (lnew/lit))
+
+        return Color(utils.hls_to_rgb(hue, lnew, snew))
+
+    def shade(self, context, values=None):
+        """Allows specification of an absolute saturation as well as a
+        relative value (lighteness) from the base color. Unlike tinting, shades
+        can be either lighter OR darker than their original value; to achieve a
+        darker color use a negative lightness value. Likewise, to desaturate,
+        use a negative saturation.
+
+        Because shades are not possible to acheive with print, they use the HSV
+        colorspace to make modifications (instead of HSL, as is the case with
+        brighten, darken, and tint_color). This may produce a different effect
+        than expected, so here are a few examples:
+
+            color.shade(0, 0)        # Original color (not modified)
+            color.shade(100, 0)      # Full brightness at same saturation
+            color.shade(0, 100)      # Full saturation at same brightness
+            color.shade(0, -100)     # Greyscale representation of color
+            color.shade(100, 100)    # Full saturation and value for this hue
+            color.shade(100, -100)   # White
+            color.shade(-100, [any]) # Black
+
+        Note that some software may specify these values in reverse order (e.g.
+        saturation first and value second), as well as reverse the meaning of
+        values, e.g. instead of (value, saturation) these might be reported as
+        (desaturation, value). A quick test should reveal if this is the case.
+        """
+        if values is None:
+            return self
+        lightness = 0.0
+        saturation = 0.0
+        if isinstance(values, (Value, Number, Neg)):
+            values = List([values,])
+        for idx, value in enumerate(values):
+            if isinstance(value, (Value, Number)):
+                value = value.value
+            elif isinstance(value, (Neg)):
+                value = -value.node.value
+            if idx == 0:
+                lightness = value
+            if idx == 1:
+                saturation = value
+
+        hue, sat, val = rgb_to_hsv(*self.value)
+
+        # Calculate relative Value (referred to as lightness to avoid confusion)
+        if lightness >= 0:
+            lavail = 1.0 - val
+            lnew = val + (lavail * (lightness / 100))
+        else:
+            lavail = val
+            lnew = lavail + (lavail * (lightness / 100))
+
+        # Calculate relative saturation
+        if saturation >= 0:
+            savail = 1.0 - sat
+            snew = sat + (savail * (saturation / 100))
+        else:
+            savail = sat
+            snew = savail + (savail * (saturation / 100))
+
+        return Color(hsv_to_rgb(hue, snew, lnew))
+
+
+    def mix(self, context, values=None):
+        """
+        For design purposes, related colours that share the same hue are created
+        in one of two manners: They are either a result of lightening or darkening
+        the original colour by some amount, or represent a mix between an original
+        value and some other colour value.
+
+        In the case of print, the latter is most frequently explicitly employed as
+        a "tint", which is produced using a screen of the original colour against
+        the paper background (which is nominally -- although not necessarily --
+        white); see http://en.wikipedia.org/wiki/Tints_and_shades.
+
+        Since many web page designs choose to emulate paper and adopt a white
+        background, in many cases the tint function behaves as expected. However,
+        in cases where a page (or related) background colour may not necessarily
+        be white, a much more intuitive means of driving a new color is by mixing
+        two colours together in a certain proportion, which is what this function
+        does.
+
+        Mixing black with white using an amount of 0% produces black (the original
+        colour); an amount of 100% with the same colours produces white (mixcolour),
+        and an amount of 50% produces a medium grey.
+
+        Note that operations are done in the RGB color space which seems to be
+        both easiest and most predictable for
+        """
+        if values is None:
+            return self
+        items = []
+        try:
+            for val in values:
+                items.append(val)
+        except TypeError:
+            raise IndexError("Two arguments are required to mix: a (second) "\
+                            "color and a percentage")
+
+        if len(items) != 2:
+            raise IndexError("Exactly two arguments are required to mix: "\
+                            "a (second) color and a percentage")
+        else:
+            amount = abs(items[0].value)
+            mixcolor = items[1]
+
+        # Evaluate mixcolor if it's a variable.
+        if isinstance(mixcolor, Var):
+            mixcolor = mixcolor.evaluate(context)
+
+        if amount == 100:
+            return mixcolor
+        if amount == 0:
+            return self
+
+        # Express amount as a decimal
+        amount /= 100.0
+
+        r1, g1, b1 = self.value
+        r2, g2, b2 = mixcolor.value
+
+        rnew = ((r1 * (1-amount)) + (r2 * amount))
+        gnew = ((g1 * (1-amount)) + (g2 * amount))
+        bnew = ((b1 * (1-amount)) + (b2 * amount))
+
+        return Color((rnew, gnew, bnew))
+
     methods = {
-        'brighten': utils.brighten_color,
-        'darken':   utils.darken_color,
-        'tint':     utils.tint_color,
-        'shade':    utils.shade_color,
-        'mix':      utils.mix_color,
+        'brighten': brighten,
+        'darken':   darken,
+        'tint':     tint,
+        'shade':    shade,
+        'mix':      mix,
         'hex':      lambda x, c: Color(x.value, x.lineno)
     }
 
     def __init__(self, value, lineno=None):
         self.from_name = False
-        if isinstance(value, basestring):
+        if isinstance(value, str):
             if not value.startswith('#'):
                 value = consts.COLORS.get(value)
                 if not value:
@@ -325,10 +524,10 @@ class Color(Literal):
                 if len(value) == 4:
                     value = [int(x * 2, 16) for x in value[1:]]
                 elif len(value) == 7:
-                    value = [int(value[i:i + 2], 16) for i in xrange(1, 7, 2)]
+                    value = [int(value[i:i + 2], 16) for i in range(1, 7, 2)]
                 else:
                     raise ValueError()
-            except ValueError, e:
+            except ValueError as e:
                 raise ParserError(lineno, 'invalid color value')
         Literal.__init__(self, tuple(value), lineno)
 
@@ -450,7 +649,7 @@ class Backstring(Literal):
         self.nodes = nodes
 
     def to_string(self, context):
-        return unicode(self.nodes)
+        return str(self.nodes)
 
 class String(Literal):
     name = 'string'
@@ -533,7 +732,7 @@ class SpriteMap(Expr):
                     raise ValueError("unexpected line: %r" % (line,))
                 else:
                     x1, y1, x2, y2 = rest
-                    spritemap[key] = map(int, (x1, y1, x2, y2))
+                    spritemap[key] = [int(x) for x in (x1, y1, x2, y2)]
         finally:
             fo.close()
         return spritemap
@@ -594,7 +793,7 @@ class AnnotatingSpriteMap(SpriteMap):
     @classmethod
     def all_used_sprites(cls):
         for smap in cls.sprite_maps:
-            yield smap, smap._sprites_used.values()
+            yield smap, list(smap._sprites_used.values())
 
 class Sprite(Expr):
     name = 'Sprite'

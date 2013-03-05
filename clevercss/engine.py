@@ -4,18 +4,18 @@ import re
 import colorsys
 import operator
 from sys import version_info
-if version_info[0] == 2 and version_info[1] >= 7:
+if version_info >= (2, 7):
     from collections import OrderedDict
 else:
     from ordereddict import OrderedDict
 
-import consts
-import utils
-import errors
-import expressions
-import line_iterator
+from clevercss import consts
+from clevercss import utils
+from clevercss import errors
+from clevercss import expressions
+from clevercss import line_iterator
 import os
-from errors import *
+from clevercss.errors import *
 
 class Engine(object):
     """
@@ -37,14 +37,14 @@ class Engine(object):
         elif not isinstance(context, dict): 
             raise TypeError("context argument must be a dictionary")
 
-        for key, value in context.iteritems():
+        for key, value in context.items():
             if isinstance(value, str):
                 expr = self._parser.parse_expr(1, value)
                 context[key] = expr
         context.update(self._vars)
 
         # pull in imports
-        for fname, source in self._imports.iteritems():
+        for fname, source in self._imports.items():
           for media, selectors, defs in Engine(source[1], fname=fname).evaluate(context):
             yield media, selectors, defs
 
@@ -128,19 +128,20 @@ class TokenStream(object):
     def __init__(self, lineno, gen):
         self.lineno = lineno
         self.gen = gen
-        self.next()
+        next(self)
 
-    def next(self):
+    def __next__(self):
         try:
-            self.current = self.gen.next()
+            self.current = next(self.gen)
         except StopIteration:
             self.current = None, 'eof'
+    next = __next__
 
     def expect(self, value, token):
         if self.current != (value, token):
             raise ParserError(self.lineno, "expected '%s', got '%s'." %
                               (value, self.current[0]))
-        self.next()
+        next(self)
 
 class Parser(object):
     """
@@ -312,8 +313,8 @@ class Parser(object):
         """
         Create a flat structure and parse inline expressions.
         """
-        expand_def = lambda (lineno, k, v): (k, self.parse_expr(lineno, v))
-        expand_defs = lambda it: map(expand_def, it)
+        expand_def = lambda lineno_k_v: (lineno_k_v[1], self.parse_expr(lineno_k_v[0], lineno_k_v[2]))
+        expand_defs = lambda it: list(map(expand_def, it))
 
         def handle_rule(rule, children, defs, macroses):
             def recurse(macroses):
@@ -387,7 +388,7 @@ class Parser(object):
             handle_rule(i_r, i_c, i_d, macroses)
 
         real_vars = {}
-        for name, args in vars.iteritems():
+        for name, args in vars.items():
             real_vars[name] = self.parse_expr(*args)
 
         return result, real_vars, imports
@@ -405,8 +406,7 @@ class Parser(object):
                 try:
                     if value[:1] == value[-1:] and value[0] in '"\'':
                         value = value[1:-1].encode('utf-8') \
-                                           .decode('string-escape') \
-                                           .encode('utf-8')
+                                           .decode('unicode-escape')
                     elif value == 'rgb':
                         return None, 'rgb'
                     elif value == 'rgba':
@@ -451,7 +451,7 @@ class Parser(object):
         if not ignore_comma:
             list_delim.append((',', 'op'))
         while stream.current in list_delim:
-            stream.next()
+            next(stream)
             args.append(self.concat(stream))
         if len(args) == 1:
             return args[0]
@@ -472,59 +472,59 @@ class Parser(object):
     def add(self, stream):
         left = self.sub(stream)
         while stream.current == ('+', 'op'):
-            stream.next()
+            next(stream)
             left = expressions.Add(left, self.sub(stream), lineno=stream.lineno)
         return left
 
     def sub(self, stream):
         left = self.mul(stream)
         while stream.current == ('-', 'op'):
-            stream.next()
+            next(stream)
             left = expressions.Sub(left, self.mul(stream), lineno=stream.lineno)
         return left
 
     def mul(self, stream):
         left = self.div(stream)
         while stream.current == ('*', 'op'):
-            stream.next()
+            next(stream)
             left = expressions.Mul(left, self.div(stream), lineno=stream.lineno)
         return left
 
     def div(self, stream):
         left = self.mod(stream)
         while stream.current == ('/', 'op'):
-            stream.next()
+            next(stream)
             left = expressions.Div(left, self.mod(stream), lineno=stream.lineno)
         return left
 
     def mod(self, stream):
         left = self.neg(stream)
         while stream.current == ('%', 'op'):
-            stream.next()
+            next(stream)
             left = expressions.Mod(left, self.neg(stream), lineno=stream.lineno)
         return left
 
     def neg(self, stream):
         if stream.current == ('-', 'op'):
-            stream.next()
+            next(stream)
             return expressions.Neg(self.primary(stream), lineno=stream.lineno)
         return self.primary(stream)
 
     def primary(self, stream):
         value, token = stream.current
         if token == 'number':
-            stream.next()
+            next(stream)
             node = expressions.Number(value, lineno=stream.lineno)
         elif token == 'value':
-            stream.next()
+            next(stream)
             node = expressions.Value(lineno=stream.lineno, *value)
         elif token == 'color':
-            stream.next()
+            next(stream)
             node = expressions.Color(value, lineno=stream.lineno)
         elif token == 'rgb':
-            stream.next()
+            next(stream)
             if stream.current == ('(', 'op'):
-                stream.next()
+                next(stream)
                 args = []
                 while len(args) < 3:
                     if args:
@@ -535,9 +535,9 @@ class Parser(object):
             else:
                 node = expressions.String('rgb')
         elif token == 'rgba':
-            stream.next()
+            next(stream)
             if stream.current == ('(', 'op'):
-                stream.next()
+                next(stream)
                 args = []
                 while len(args) < 4:
                     if args:
@@ -546,29 +546,29 @@ class Parser(object):
                 stream.expect(')', 'op')
                 return expressions.RGBA(args)
         elif token == 'backstring':
-            stream.next()
+            next(stream)
             node = expressions.Backstring(value, lineno=stream.lineno)
         elif token == 'string':
-            stream.next()
+            next(stream)
             node = expressions.String(value, lineno=stream.lineno)
         elif token == 'url':
-            stream.next()
+            next(stream)
             node = expressions.URL(value, lineno=stream.lineno)
         elif token == 'import':
-            stream.next()
+            next(stream)
             node = expressions.Import(value, lineno=stream.lineno)
         elif token == 'spritemap':
-            stream.next()
+            next(stream)
             if value[0] == value[-1] and value[0] in '"\'':
                 value = value[1:-1]
             value = expressions.String(value, lineno=stream.lineno)
             node = self.sprite_map_cls(value, fname=self.fname,
                                        lineno=stream.lineno)
         elif token == 'var':
-            stream.next()
+            next(stream)
             node = expressions.Var(value, lineno=stream.lineno)
         elif token == 'op' and value == '(':
-            stream.next()
+            next(stream)
             if stream.current == (')', 'op'):
                 raise ParserError(stream.lineno, 'empty parentheses are '
                                   'not valid. If you want to use them as '
@@ -580,7 +580,7 @@ class Parser(object):
                 raise ParserError(stream.lineno, 'You cannot call standalone '
                                   'methods. If you wanted to use it as a '
                                   'string you have to quote it.')
-            stream.next()
+            next(stream)
             node = expressions.String(value, lineno=stream.lineno)
         while stream.current[1] == 'call':
             node = self.call(stream, node)
@@ -589,7 +589,7 @@ class Parser(object):
     def call(self, stream, node):
         method, token = stream.current
         assert token == 'call'
-        stream.next()
+        next(stream)
         args = []
         while stream.current != (')', 'op'):
             if args:

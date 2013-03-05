@@ -9,10 +9,10 @@
     function in the clevercss module. It's that easy :-)
     """
 
-import consts
-import utils
-import expressions
-import engine
+from clevercss import consts
+from clevercss import utils
+from clevercss import expressions
+from clevercss import engine
 
 VERSION = '0.2.2.dev'
 

@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 
 import os
+import sys
 import unittest
-from magictest import MagicTest as TestCase
+from tests.magictest import MagicTest as TestCase
 
 from textwrap import dedent
 
@@ -62,6 +63,12 @@ class ConvertTestCase(TestCase):
         }""").strip())
 
     def test_eigen(self):
+        if sys.version_info >= (3, 0):
+            # round() behavior changed in Python 3
+            # http://docs.python.org/3/whatsnew/3.0.html#builtins
+            a_hover_color = '#4c0000'
+        else:
+            a_hover_color = '#4d0000'
         self.assertEqual(eigen_test(),dedent("""
         body {
           font-family: serif, sans-serif, Verdana, 'Times New Roman';
@@ -83,7 +90,7 @@ class ConvertTestCase(TestCase):
         }
 
         a:hover {
-          color: #4d0000;
+          color: %(a_hover_color)s;
         }
 
         a:active {
@@ -112,7 +119,7 @@ class ConvertTestCase(TestCase):
           height: 1em;
           padding: 0.1em;
         }
-        """).strip())
+        """ % {'a_hover_color': a_hover_color}).strip())
 
     def test_import_line(self):
       """

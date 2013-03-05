@@ -25,7 +25,7 @@ CONV = {
     }
 }
 UNIT_MAPPING = {}
-for measures, units in CONV.iteritems():
+for measures, units in CONV.items():
     UNIT_MAPPING.update(dict((unit, measures) for unit in units))
 
 # color literals
@@ -171,7 +171,7 @@ COLORS = {
     'yellow': '#ffff00',
     'yellowgreen': '#9acd32'
 }
-REV_COLORS = dict((v, k) for k, v in COLORS.iteritems())
+REV_COLORS = dict((v, k) for k, v in COLORS.items())
 
 # partial regular expressions for the expr parser
 r_number = '(?:\s\-)?(?:\d+(?:\.\d+)?|\.\d+)'

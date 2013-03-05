@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import unittest
-from magictest import MagicTest as TestCase
+from tests.magictest import MagicTest as TestCase
 
 from textwrap import dedent
 
