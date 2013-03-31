@@ -418,7 +418,7 @@ class Color(Literal):
             if idx == 1:
                 saturation = value
 
-        hue, sat, val = rgb_to_hsv(*self.value)
+        hue, sat, val = utils.rgb_to_hsv(*self.value)
 
         # Calculate relative Value (referred to as lightness to avoid confusion)
         if lightness >= 0:
@@ -436,7 +436,7 @@ class Color(Literal):
             savail = sat
             snew = savail + (savail * (saturation / 100))
 
-        return Color(hsv_to_rgb(hue, snew, lnew))
+        return Color(utils.hsv_to_rgb(hue, snew, lnew))
 
 
     def mix(self, context, values=None):
