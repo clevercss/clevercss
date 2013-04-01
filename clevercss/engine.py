@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import sys
 import re
 import colorsys
 import operator
@@ -279,7 +280,11 @@ class Parser(object):
                             absurl = url
                         if not os.path.isfile(absurl):
                             fail('file "%s" was not found' % absurl)
-                        imports[absurl] = (lineiter.lineno, open(absurl).read())
+                        if sys.version_info < (3, 0):
+                            fileobj = open(absurl)
+                        else:
+                            fileobj = open(absurl, encoding='utf-8')
+                        imports[absurl] = (lineiter.lineno, fileobj.read())
                     else:
                         fail('Style definitions or group blocks are only '
                              'allowed inside a rule or group block.')
